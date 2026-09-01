@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>C&H Farms — Live Management System</title>
+<style>
+:root{
+  --g0:#0A2F19;--g1:#1A5C2E;--g2:#2E7D45;--g3:#4CAF70;--g4:#D6EDD9;--g5:#F0FAF3;
+  --a0:#78350F;--a1:#D97706;--a2:#FEF3C7;--a3:#FDE68A;
+  --r0:#7F1D1D;--r1:#DC2626;--r2:#FEE2E2;
+  --b0:#1E3A8A;--b1:#2563EB;--b2:#DBEAFE;
+  --t0:#134E4A;--t1:#0D9488;--t2:#CCFBF1;
+  --p0:#4C1D95;--p1:#7C3AED;--p2:#EDE9FE;
+  --c0:#0F172A;--c1:#1E293B;--c2:#64748B;--c3:#CBD5E1;--c4:#F8FAFC;--c5:#FFFFFF;
+  --rad:8px;--rad-lg:14px;--sh:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#EFF4EE;color:var(--c0);font-size:14px;line-height:1.5}
+
+/* ── WALKTHROUGH OVERLAY ── */
+#wt-overlay{position:fixed;inset:0;background:rgba(10,47,25,.92);z-index:2000;display:flex;align-items:center;justify-content:center}
+#wt-overlay.hidden{display:none}
+.wt-box{background:#fff;border-radius:20px;width:520px;max-width:95vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,.5)}
+.wt-header{background:linear-gradient(135deg,var(--g0),var(--g1));padding:28px 28px 20px;color:#fff}
+.wt-logo{width:48px;height:48px;background:rgba(255,255,255,.15);border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;margin-bottom:14px}
+.wt-title{font-size:20px;font-weight:700;margin-bottom:4px}
+.wt-sub{font-size:13px;opacity:.75}
+.wt-progress-track{height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin-top:20px}
+.wt-progress-fill{height:100%;background:var(--g3);border-radius:2px;transition:width .4s}
+.wt-steps-outer{display:flex;overflow:hidden;flex:1}
+.wt-steps-inner{display:flex;transition:transform .35s cubic-bezier(.4,0,.2,1)}
+.wt-step{min-width:520px;max-width:95vw;padding:28px;overflow-y:auto;max-height:60vh}
+.wt-step-num{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;font-weight:700;font-size:13px;margin-bottom:14px;flex-shrink:0}
+.wt-step-num.done{background:var(--g4);color:var(--g1)}
+.wt-step-num.now{background:var(--b2);color:var(--b0)}
+.wt-step-num.todo{background:var(--c4);color:var(--c2)}
+.wt-step h3{font-size:16px;font-weight:700;margin-bottom:8px;color:var(--c0)}
+.wt-step p{font-size:13px;color:var(--c1);line-height:1.7;margin-bottom:10px}
+.wt-step code{background:var(--c4);border:1px solid var(--c3);border-radius:4px;padding:1px 5px;font-size:12px;font-family:monospace}
+.wt-step .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.wt-step .info-card{background:var(--c4);border-radius:var(--rad);padding:10px 12px;border-left:3px solid var(--g3)}
+.wt-step .info-card .lbl{font-size:10px;font-weight:600;color:var(--c2);text-transform:uppercase;letter-spacing:.05em}
+.wt-step .info-card .val{font-size:14px;font-weight:700;color:var(--c0);margin-top:2px}
+.wt-step .warn-box{background:var(--r2);border-left:3px solid var(--r1);border-radius:var(--rad);padding:10px 13px;font-size:12.5px;color:var(--r0);margin:10px 0}
+.wt-step .ok-box{background:var(--g4);border-left:3px solid var(--g2);border-radius:var(--rad);padding:10px 13px;font-size:12.5px;color:var(--g1);margin:10px 0}
+.wt-step .step-list{margin:8px 0;padding-left:18px}
+.wt-step .step-list li{font-size:13px;color:var(--c1);margin-bottom:5px;line-height:1.6}
+.wt-step table.mini{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+.wt-step table.mini th{background:var(--g1);color:#fff;padding:6px 8px;text-align:left;font-weight:600}
+.wt-step table.mini td{padding:6px 8px;border-bottom:1px solid var(--c3)}
+.wt-step table.mini tr:last-child td{border-bottom:none}
+.wt-step table.mini tr:nth-child(even) td{background:var(--c4)}
+.wt-footer{padding:18px 28px;border-top:1px solid var(--c3);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.wt-step-indicator{font-size:12px;color:var(--c2);font-weight:500}
+.wt-nav{display:flex;gap:8px}
+.wt-btn{padding:9px 20px;border-radius:var(--rad);font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
+.wt-btn-skip{background:var(--c4);color:var(--c2)}.wt-btn-skip:hover{background:var(--c3)}
+.wt-btn-prev{background:var(--c4);color:var(--c1)}.wt-btn-prev:hover{background:var(--c3)}
+.wt-btn-next{background:var(--g1);color:#fff}.wt-btn-next:hover{background:var(--g0)}
+
+/* ── LOGIN ── */
+#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,var(--g0) 0%,var(--g1) 60%,var(--g2) 100%);display:flex;align-items:center;justify-content:center;z-index:1000}
+.login-box{background:#fff;border-radius:20px;padding:36px 32px;width:380px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-logo{width:52px;height:52px;background:var(--g1);border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:18px;margin:0 auto 16px}
+.login-title{text-align:center;font-size:19px;font-weight:700;color:var(--g0);margin-bottom:3px}
+.login-sub{text-align:center;font-size:12px;color:var(--c2);margin-bottom:24px}
+.user-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px}
+.u-btn{border:2px solid var(--c3);background:var(--c4);border-radius:var(--rad);padding:11px 8px;cursor:pointer;text-align:center;transition:all .15s;font-family:inherit}
+.u-btn:hover,.u-btn.sel{border-color:var(--g2);background:var(--g5)}
+.u-btn .un{font-weight:700;font-size:13px;color:var(--c0)}
+.u-btn .ur{font-size:11px;color:var(--c2);margin-top:2px}
+.u-btn.sel .un{color:var(--g1)}
+.pin-wrap{display:flex;gap:8px;margin-bottom:14px}
+.pin-wrap input{flex:1;padding:11px;border:2px solid var(--c3);border-radius:var(--rad);font-size:18px;text-align:center;letter-spacing:8px;font-family:monospace}
+.pin-wrap input:focus{outline:none;border-color:var(--g2)}
+.btn-login{width:100%;padding:13px;background:var(--g1);color:#fff;border:none;border-radius:var(--rad);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;letter-spacing:.3px}
+.btn-login:hover{background:var(--g0)}
+.l-err{color:var(--r1);font-size:12px;text-align:center;margin-top:8px;min-height:18px}
+.l-offline{background:var(--a2);border:1px solid var(--a3);border-radius:6px;padding:7px 10px;font-size:11px;color:var(--a0);text-align:center;margin-top:10px;display:none}
+
+/* ── APP SHELL ── */
+#app{display:none;height:100vh;overflow:hidden;flex-direction:column}
+#app.on{display:flex}
+.topbar{background:var(--g0);height:50px;display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.08)}
+.tb-logo{width:30px;height:30px;background:var(--g2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:11px;flex-shrink:0}
+.tb-title{color:#fff;font-weight:600;font-size:13.5px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-chips{display:flex;align-items:center;gap:6px}
+.chip{background:rgba(255,255,255,.1);color:rgba(255,255,255,.85);border-radius:100px;padding:3px 9px;font-size:11px;font-weight:500;white-space:nowrap}
+.chip.warn{background:rgba(217,119,6,.3);color:#FCD34D}
+.chip.ok{background:rgba(74,175,112,.25);color:#86EFAC}
+.tb-btn{background:none;border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.8);border-radius:var(--rad);padding:5px 10px;font-size:11.5px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap}
+.tb-btn:hover{background:rgba(255,255,255,.1)}
+.tb-btn.hot{border-color:var(--a3);color:#FCD34D}
+
+.shell{display:flex;flex:1;overflow:hidden}
+.sb{width:210px;background:var(--c5);border-right:1px solid var(--c3);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
+.sb-sec{padding:10px 10px 3px;font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--c2);text-transform:uppercase}
+.sb-item{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:7px;margin:1px 5px;cursor:pointer;font-size:13px;color:var(--c1);transition:all .1s;user-select:none}
+.sb-item:hover{background:var(--c4)}
+.sb-item.on{background:var(--g4);color:var(--g0);font-weight:600}
+.sb-ico{width:18px;text-align:center;font-size:14px}
+.sb-pill{margin-left:auto;font-size:10px;border-radius:100px;padding:1px 6px;font-weight:700}
+.pill-r{background:var(--r2);color:var(--r0)}
+.pill-a{background:var(--a2);color:var(--a0)}
+.pill-g{background:var(--g4);color:var(--g1)}
+.sb-div{border:none;border-top:1px solid var(--c3);margin:6px 8px}
+
+.main{flex:1;overflow-y:auto;padding:16px 18px}
+.pg{display:none}.pg.on{display:block}
+.pg-head{margin-bottom:14px}
+.pg-title{font-size:17px;font-weight:700;color:var(--c0)}
+.pg-sub{font-size:12px;color:var(--c2);margin-top:2px}
+
+/* ── KPI ── */
+.krow{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:9px;margin-bottom:14px}
+.kpi{background:var(--c5);border:1px solid var(--c3);border-radius:var(--rad);padding:11px 12px;box-shadow:var(--sh)}
+.kl{font-size:10.5px;color:var(--c2);margin-bottom:3px;font-weight:500}
+.kv{font-size:20px;font-weight:700;line-height:1.1}
+.kd{font-size:10.5px;margin-top:2px}
+.up{color:var(--g2)}.dn{color:var(--r1)}.warn{color:var(--a1)}.info{color:var(--b1)}
+
+/* ── CARD ── */
+.card{background:var(--c5);border:1px solid var(--c3);border-radius:var(--rad-lg);margin-bottom:12px;overflow:hidden;box-shadow:var(--sh)}
+.ch{padding:11px 15px;border-bottom:1px solid var(--c3);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ct{font-size:13px;font-weight:600}
+.cb{padding:13px 15px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* ── BADGE ── */
+.bdg{display:inline-flex;align-items:center;font-size:11px;font-weight:600;border-radius:100px;padding:2px 8px}
+.bg{background:var(--g4);color:var(--g0)}
+.ba{background:var(--a2);color:var(--a0)}
+.br{background:var(--r2);color:var(--r0)}
+.bb{background:var(--b2);color:var(--b0)}
+.bt{background:var(--t2);color:var(--t0)}
+.bp{background:var(--p2);color:var(--p0)}
+.bgr{background:var(--c4);color:var(--c1)}
+
+/* ── ALERT ── */
+.al{border-radius:var(--rad);padding:9px 12px;font-size:12.5px;margin-bottom:10px;display:flex;gap:7px;align-items:flex-start;border-left:3px solid}
+.al-r{background:var(--r2);color:var(--r0);border-color:var(--r1)}
+.al-a{background:var(--a2);color:var(--a0);border-color:var(--a1)}
+.al-g{background:var(--g4);color:var(--g1);border-color:var(--g3)}
+.al-b{background:var(--b2);color:var(--b0);border-color:var(--b1)}
+
+/* ── TABLE ── */
+.tw{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{text-align:left;padding:7px 10px;font-size:10px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--c3);background:var(--c4);white-space:nowrap}
+.tbl td{padding:8px 10px;border-bottom:1px solid #F1F5F9;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--c4)}
+
+/* ── FORM ── */
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.fg label{font-size:11.5px;font-weight:600;color:var(--c1)}
+.fg input,.fg select,.fg textarea{padding:8px 10px;border:1.5px solid var(--c3);border-radius:var(--rad);font-size:13px;font-family:inherit;color:var(--c0);background:var(--c4);transition:border-color .15s}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--g2);background:#fff}
+.fg input[readonly]{background:var(--g5);color:var(--g1);font-weight:600}
+.fg .hint{font-size:10.5px;color:var(--c2)}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px}
+
+/* ── BUTTONS ── */
+.btn{border:1.5px solid var(--c3);background:var(--c5);border-radius:var(--rad);padding:7px 14px;font-size:13px;color:var(--c0);cursor:pointer;font-family:inherit;transition:all .13s;font-weight:600}
+.btn:hover{background:var(--c4)}.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-g{background:var(--g1);color:#fff;border-color:var(--g1)}.btn-g:hover{background:var(--g0)}
+.btn-a{background:var(--a1);color:#fff;border-color:var(--a1)}
+.btn-b{background:var(--b1);color:#fff;border-color:var(--b1)}
+.btn-r{background:var(--r1);color:#fff;border-color:var(--r1)}
+.btn-t{background:var(--t1);color:#fff;border-color:var(--t1)}
+.btn-p{background:var(--p1);color:#fff;border-color:var(--p1)}
+.btn-sm{padding:4px 10px;font-size:11.5px}
+.brow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+
+/* ── PROGRESS ── */
+.prog{height:5px;background:var(--c3);border-radius:3px;overflow:hidden;margin:4px 0}
+.pf{height:100%;border-radius:3px}
+.pf-g{background:var(--g3)}.pf-a{background:var(--a1)}.pf-r{background:var(--r1)}
+
+/* ── BATCH CARD ── */
+.bc{background:var(--c5);border:1.5px solid var(--c3);border-radius:var(--rad-lg);padding:14px;overflow:hidden}
+.bc.ov{border-color:var(--r1);background:linear-gradient(135deg,#fff9f9,#fff)}
+.bc.wa{border-color:var(--a1)}
+.bc.ok{border-color:var(--g3)}
+.bc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.bc-n{font-size:16px;font-weight:800}
+.bc-sg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px}
+.bc-s{background:rgba(0,0,0,.04);border-radius:6px;padding:7px 8px}
+.bc-sl{font-size:9.5px;color:var(--c2);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.bc-sv{font-size:15px;font-weight:800;margin-top:1px}
+.bc-proc{margin-top:10px;background:rgba(0,0,0,.04);border-radius:6px;padding:7px 10px;font-size:11px;display:flex;justify-content:space-between}
+
+/* ── QUOTE OUTPUT ── */
+.qout{background:var(--c4);border:1px solid var(--c3);border-radius:var(--rad-lg);padding:14px}
+.ql{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--c3)}
+.ql:last-child{border-bottom:none;font-weight:700;font-size:15px;margin-top:4px}
+.ql-l{font-size:12px;color:var(--c2)}
+.avail-ok{background:var(--g4);border:1.5px solid var(--g3);border-radius:var(--rad);padding:12px 14px;margin-top:10px;font-size:12.5px;color:var(--g0)}
+.avail-proj{background:var(--a2);border:1.5px solid var(--a3);border-radius:var(--rad);padding:12px 14px;margin-top:10px;font-size:12.5px;color:var(--a0)}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:18px;right:18px;min-width:220px;max-width:340px;background:var(--c0);color:#fff;padding:11px 16px;border-radius:var(--rad);font-size:13px;font-weight:500;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;line-height:1.4}
+#toast.on{opacity:1}
+#toast.err{background:var(--r0)}
+#toast.ok{background:var(--g1)}
+
+/* ── OFFLINE BAR ── */
+#obar{background:var(--a1);color:#fff;text-align:center;font-size:12px;padding:5px;display:none;font-weight:500}
+#obar.on{display:block}
+
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle;margin-right:5px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.lc{padding:30px;text-align:center;color:var(--c2);font-size:13px}
+
+@media(max-width:680px){.sb{display:none}.g2,.g3{grid-template-columns:1fr}.bc-sg{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<!-- ══════════ WALKTHROUGH ══════════ -->
+<div id="wt-overlay">
+  <div class="wt-box">
+    <div class="wt-header">
+      <div class="wt-logo">CH</div>
+      <div class="wt-title">Welcome to C&H Farms Live System</div>
+      <div class="wt-sub">Procurement · Stock · Revenue · Quotes · Sheet sync</div>
+      <div class="wt-progress-track"><div class="wt-progress-fill" id="wt-prog" style="width:14%"></div></div>
+    </div>
+    <div class="wt-steps-outer"><div class="wt-steps-inner" id="wt-inner">
+
+      <!-- STEP 1 -->
+      <div class="wt-step">
+        <div class="wt-step-num now">1</div>
+        <h3>🌾 Your live batch data — what's loaded right now</h3>
+        <p>All field notes from <strong>09/07/2026 to 24/08/2026</strong> are pre-loaded. Here is a summary of your three active broiler batches:</p>
+        <div class="info-grid">
+          <div class="info-card"><div class="lbl">Batch 19a</div><div class="val">998 live birds</div><span style="font-size:11px;color:#DC2626">⚠ OVERDUE Day 51 — Process now</span></div>
+          <div class="info-card"><div class="lbl">Batch 19b</div><div class="val">1,408 live birds</div><span style="font-size:11px;color:#DC2626">⚠ OVERDUE Day 44 — Process now</span></div>
+          <div class="info-card"><div class="lbl">Batch 20a</div><div class="val">1,018 live birds</div><span style="font-size:11px;color:#2E7D45">✓ Day 5 of 35 · Due 28/09</span></div>
+          <div class="info-card"><div class="lbl">Processing done</div><div class="val">414 (B17) + 184 (B18)</div><span style="font-size:11px;color:#64748B">Already recorded</span></div>
+        </div>
+        <div class="warn-box">🚨 Batch 19a (arrival 09/07) and 19b (arrival 16/07) are both past Day 35. They need immediate processing scheduling.</div>
+        <div class="ok-box">✅ Feed prices loaded: Super Starter ₦19,800 · Grower ₦19,600 · Finisher ₦19,500 · Layer Mash ₦15,000</div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="wt-step">
+        <div class="wt-step-num now">2</div>
+        <h3>👤 5 user logins — who enters what</h3>
+        <p>Each person has a name + PIN. They only see what is relevant to their role. Offline work is allowed — entries queue and sync later.</p>
+        <table class="mini">
+          <tr><th>Name</th><th>PIN</th><th>Role</th><th>What they do</th></tr>
+          <tr><td><strong>Iyanu</strong></td><td>1234</td><td>Admin</td><td>All sections + sync to Sheet</td></tr>
+          <tr><td><strong>John</strong></td><td>2001</td><td>Counter</td><td>Daily mortality & feed logs</td></tr>
+          <tr><td><strong>Taiwo</strong></td><td>3001</td><td>Egg & Feed</td><td>Egg harvest & sales daily</td></tr>
+          <tr><td><strong>Nana</strong></td><td>4001</td><td>Processing</td><td>Processing records & revenue</td></tr>
+          <tr><td><strong>Sunday</strong></td><td>5001</td><td>Layer</td><td>Layer count & egg stock</td></tr>
+        </table>
+        <p>After login, each user sees only their relevant menu items. <strong>Iyanu is the only one who can flush the sync to Google Sheet.</strong></p>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="wt-step">
+        <div class="wt-step-num now">3</div>
+        <h3>📝 Daily log — how John enters every day</h3>
+        <ol class="step-list">
+          <li>John taps the app link on his phone (or browser)</li>
+          <li>Selects <strong>John</strong> from the user list, enters PIN <strong>2001</strong></li>
+          <li>Goes to <strong>Daily Log Entry</strong> in the menu</li>
+          <li>Fills: Date, Batch (19a / 19b / 20a), Mortality count, Feed bags used</li>
+          <li>Taps <strong>Save Log Entry</strong></li>
+          <li>If offline — entry shows <em>"Queued"</em> and saves locally. When John (or Iyanu) reconnects, the top bar shows a pending count. Iyanu taps <strong>↑ Sync</strong> to push to Google Sheet tab <code>03_Broiler Live Log</code></li>
+        </ol>
+        <div class="ok-box">✅ Each daily entry writes one row to <code>03_Broiler Live Log</code> automatically — no copy-paste needed.</div>
+      </div>
+
+      <!-- STEP 4 -->
+      <div class="wt-step">
+        <div class="wt-step-num now">4</div>
+        <h3>🧾 Buyer Quote Agent — generate & download PDF</h3>
+        <ol class="step-list">
+          <li>Go to <strong>Buyer Quote Agent</strong> in the menu</li>
+          <li>Enter customer name, phone, product type (Broiler Meat / Pullet Eggs / Medium Eggs), quantity</li>
+          <li>Prices auto-fill: Broiler ₦4,500/kg · Pullet Eggs ₦3,800/crate · Medium Eggs ₦5,100/crate</li>
+          <li>Tap <strong>Check stock & generate quote</strong></li>
+          <li>System checks live bird count and processing schedule:<br>→ If stock available = <strong>CONFIRMED QUOTE</strong><br>→ If not yet processed = <strong>PROJECTION QUOTE</strong> with ETA date</li>
+          <li>Tap <strong>⬇ Download PDF</strong> — full A4 branded PDF with quote terms</li>
+          <li>Quote automatically writes to Sheet tab <code>07_Customer_Order_Quote</code></li>
+        </ol>
+        <div class="ok-box">Egg prices: Pullet = ₦3,800/crate · Medium = ₦5,100/crate (from your records)</div>
+      </div>
+
+      <!-- STEP 5 -->
+      <div class="wt-step">
+        <div class="wt-step-num now">5</div>
+        <h3>🌾 Feed stock — what's on hand after 25/08 delivery</h3>
+        <p>The Hephzibah Feeds delivery on 25/08/2026 has been pre-loaded:</p>
+        <table class="mini">
+          <tr><th>Code</th><th>Type</th><th>Bags</th><th>Price/bag</th><th>Total value</th></tr>
+          <tr><td>510</td><td>Broiler Super Starter</td><td>10</td><td>₦19,800</td><td>₦198,000</td></tr>
+          <tr><td>512</td><td>Broiler Finisher</td><td>40</td><td>₦19,500</td><td>₦780,000</td></tr>
+          <tr><td>324</td><td>Layer Mash</td><td>118</td><td>₦15,000</td><td>₦1,770,000</td></tr>
+        </table>
+        <p>Feed assignment: Batch 19a & 19b eat <strong>Finisher (512)</strong>. Batch 20a eats <strong>Super Starter (510)</strong>. When you receive new feed, go to <strong>Feed Stock</strong> → Log Delivery to add bags.</p>
+        <div class="warn-box">⚠ 19a has consumed 93.5 bags and 19b has consumed 81.5 bags of Finisher. Only 40 bags in stock — restock urgently for B19a/19b processing period AND B20a's upcoming Finisher phase.</div>
+      </div>
+
+      <!-- STEP 6 -->
+      <div class="wt-step">
+        <div class="wt-step-num now">6</div>
+        <h3>🚀 Getting this system online (Render)</h3>
+        <p>This dashboard connects to a Python backend. You need to deploy it once to get a permanent link anyone on your farm can use:</p>
+        <ol class="step-list">
+          <li>Create a free account at <strong>github.com</strong> and a new repository called <code>chfarms-api</code></li>
+          <li>Upload <code>app.py</code> and <code>requirements.txt</code> (from the ZIP file delivered with this)</li>
+          <li>Create a free account at <strong>render.com</strong> → New Web Service → connect your GitHub repo</li>
+          <li>Build command: <code>pip install -r requirements.txt</code> · Start: <code>gunicorn app:app</code></li>
+          <li>Add env variable: <code>GOOGLE_SHEET_ID</code> = <code>1ajWKs867tssC1DqY-miGiLG61eNZIKoZCpv5x-18LvY</code></li>
+          <li>Copy your Render URL → open this file in a text editor → find <code>let API_URL</code> → replace → save</li>
+        </ol>
+        <div class="ok-box">✅ Until deployed, the system works in offline mode — all data queues locally. Enter the API URL in Settings → Deploy when ready.</div>
+      </div>
+
+      <!-- STEP 7 -->
+      <div class="wt-step">
+        <div class="wt-step-num now">7</div>
+        <h3>✅ You're ready — here's your daily routine</h3>
+        <table class="mini">
+          <tr><th>Time</th><th>Who</th><th>Action</th><th>Where</th></tr>
+          <tr><td>Morning</td><td>John</td><td>Count birds, log mortality + feed</td><td>Daily Log Entry</td></tr>
+          <tr><td>Morning</td><td>Taiwo</td><td>Egg harvest — log crates collected + sold</td><td>Egg Stock</td></tr>
+          <tr><td>As needed</td><td>Iyanu</td><td>Generate buyer quote → PDF → share</td><td>Buyer Quote Agent</td></tr>
+          <tr><td>After processing</td><td>Nana</td><td>Log birds processed, weight, revenue</td><td>Processing Log</td></tr>
+          <tr><td>Evening</td><td>Iyanu</td><td>Sync all pending entries to Google Sheet</td><td>↑ Sync button</td></tr>
+          <tr><td>Weekly</td><td>Iyanu</td><td>Review batch costs, mortality %, feed FCR</td><td>Live Batches</td></tr>
+        </table>
+        <p>Tap <strong>Start using the system →</strong> to begin. You can re-open this guide anytime from the menu.</p>
+      </div>
+
+    </div></div><!-- /steps -->
+    <div class="wt-footer">
+      <div class="wt-step-indicator" id="wt-step-txt">Step 1 of 7</div>
+      <div class="wt-nav">
+        <button class="wt-btn wt-btn-skip" onclick="closeWT()">Skip guide</button>
+        <button class="wt-btn wt-btn-prev" id="wt-prev" onclick="wtNav(-1)" style="display:none">← Back</button>
+        <button class="wt-btn wt-btn-next" id="wt-next" onclick="wtNav(1)">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">CH</div>
+    <div class="login-title">C&H Farms</div>
+    <div class="login-sub">Farm Recovery Program · Live Management</div>
+    <div class="user-grid">
+      <div class="u-btn" onclick="selU('iyanu',this)"><div class="un">Iyanu</div><div class="ur">Admin</div></div>
+      <div class="u-btn" onclick="selU('john',this)"><div class="un">John</div><div class="ur">Counter</div></div>
+      <div class="u-btn" onclick="selU('taiwo',this)"><div class="un">Taiwo</div><div class="ur">Egg & Feed</div></div>
+      <div class="u-btn" onclick="selU('nana',this)"><div class="un">Nana</div><div class="ur">Processing</div></div>
+      <div class="u-btn" onclick="selU('sunday',this)" style="grid-column:1/-1"><div class="un">Sunday</div><div class="ur">Layer Counter</div></div>
+    </div>
+    <div class="pin-wrap"><input type="password" id="pin" maxlength="4" placeholder="PIN" inputmode="numeric" onkeyup="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn-login" onclick="doLogin()">Sign In →</button>
+    <div class="l-err" id="lerr"></div>
+    <div class="l-offline" id="loff">📶 Offline mode — enter PIN to continue</div>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app">
+  <div id="obar">⚡ Offline — changes queued · will sync when reconnected</div>
+  <div class="topbar">
+    <div class="tb-logo">CH</div>
+    <div class="tb-title">C&H Farms Live</div>
+    <div class="tb-chips">
+      <span class="chip" id="chip-user"></span>
+      <span class="chip" id="chip-role" style="opacity:.7"></span>
+      <span class="chip warn" id="chip-pending" style="display:none"></span>
+      <span class="chip ok" id="chip-live">● Live</span>
+    </div>
+    <button class="tb-btn" id="sync-btn" onclick="flushSync()">↑ Sync</button>
+    <button class="tb-btn" onclick="nav('guide',null);document.getElementById('wt-overlay').classList.remove('hidden')">? Guide</button>
+    <button class="tb-btn" onclick="doLogout()">Sign out</button>
+  </div>
+
+  <div class="shell">
+    <nav class="sb">
+      <div class="sb-sec">Overview</div>
+      <div class="sb-item on" onclick="nav('dashboard',this)"><span class="sb-ico">📊</span>Dashboard</div>
+
+      <div class="sb-sec">Broilers</div>
+      <div class="sb-item" onclick="nav('batches',this)"><span class="sb-ico">🐔</span>Live Batches<span class="sb-pill pill-r" id="sb-alert" style="display:none">!</span></div>
+      <div class="sb-item" onclick="nav('log-entry',this)"><span class="sb-ico">📝</span>Daily Log Entry</div>
+      <div class="sb-item" onclick="nav('feed',this)"><span class="sb-ico">🌾</span>Feed Stock</div>
+
+      <div class="sb-sec">Sales</div>
+      <div class="sb-item" onclick="nav('quote',this)"><span class="sb-ico">🧾</span>Buyer Quotes</div>
+      <div class="sb-item" onclick="nav('orders',this)"><span class="sb-ico">📦</span>Order Register</div>
+
+      <div class="sb-sec">Layers</div>
+      <div class="sb-item" onclick="nav('eggs',this)"><span class="sb-ico">🥚</span>Egg Stock</div>
+
+      <div class="sb-sec">Farm Records</div>
+      <div class="sb-item" onclick="nav('vaccines',this);loadVaccines()"><span class="sb-ico">💉</span>Vaccine Log</div>
+      <div class="sb-item" onclick="nav('processing',this);loadProcEst()"><span class="sb-ico">🔪</span>Processing Log</div>
+      <div class="sb-item" onclick="nav('alerts',this)"><span class="sb-ico">🔔</span>Alerts & Notif.</div>
+      <hr class="sb-div">
+      <div class="sb-item" onclick="nav('deploy',this)"><span class="sb-ico">🚀</span>Deploy / Settings</div>
+      <div class="sb-item" onclick="nav('guide',this);document.getElementById('wt-overlay').classList.remove('hidden')"><span class="sb-ico">📋</span>Walkthrough Guide</div>
+    </nav>
+
+    <main class="main">
+
+      <!-- ── DASHBOARD ── -->
+      <div id="pg-dashboard" class="pg on">
+        <div class="pg-head"><div class="pg-title">Farm Dashboard</div><div class="pg-sub" id="dash-sub">Loading…</div></div>
+        <div id="dash-alerts"></div>
+        <div class="krow">
+          <div class="kpi"><div class="kl">Total live birds</div><div class="kv" id="kv-live">—</div><div class="kd info">All 3 batches</div></div>
+          <div class="kpi"><div class="kl">Batches overdue</div><div class="kv dn" id="kv-od">—</div><div class="kd">Past Day 35</div></div>
+          <div class="kpi"><div class="kl">B19a mortality</div><div class="kv" id="kv-m19a">—</div></div>
+          <div class="kpi"><div class="kl">B19b mortality</div><div class="kv" id="kv-m19b">—</div></div>
+          <div class="kpi"><div class="kl">B20a — Day</div><div class="kv" id="kv-d20a">—</div><div class="kd up">New batch</div></div>
+          <div class="kpi"><div class="kl">Pending syncs</div><div class="kv" id="kv-sync">0</div></div>
+        </div>
+        <div class="g3" id="dash-batch-cards"></div>
+        <div class="g2">
+          <div class="card">
+            <div class="ch"><div class="ct">Processing events</div></div>
+            <div class="cb">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--c3)">
+                <div><strong>Batch 17</strong> · 20/07/2026</div><div><span class="bdg bg">414 birds</span></div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0">
+                <div><strong>Batch 18</strong> · 25/08/2026</div><div><span class="bdg bg">184 birds</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ch"><div class="ct">Feed delivery — 25/08/2026 · Hephzibah</div></div>
+            <div class="cb">
+              <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--c3);font-size:12.5px">
+                <span>Layer Mash (324)</span><span><strong>118 bags</strong> · ₦1,770,000</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--c3);font-size:12.5px">
+                <span>Broiler Finisher (512)</span><span><strong>40 bags</strong> · ₦780,000</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12.5px">
+                <span>Super Starter (510)</span><span><strong>10 bags</strong> · ₦198,000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── LIVE BATCHES ── -->
+      <div id="pg-batches" class="pg">
+        <div class="pg-head"><div class="pg-title">Live Broiler Batches</div><div class="pg-sub">19a · 19b · 20a · 35-day rearing cycle · Arrival → Processing</div></div>
+        <div id="batch-alerts"></div>
+        <div class="g3" id="batch-cards"></div>
+        <div class="card">
+          <div class="ch">
+            <div class="ct">Daily log records</div>
+            <select id="log-sel" class="btn btn-sm" onchange="loadLog()">
+              <option value="19a">Batch 19a</option>
+              <option value="19b">Batch 19b</option>
+              <option value="20a">Batch 20a</option>
+            </select>
+          </div>
+          <div class="tw">
+            <table class="tbl" id="log-tbl">
+              <thead><tr><th>Date</th><th>Batch</th><th>Mort</th><th>Feed (bags)</th><th>Cum. Mort</th><th>Mort %</th><th>Live count</th><th>Cum. Feed</th></tr></thead>
+              <tbody id="log-body"><tr><td colspan="8" class="lc">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DAILY LOG ENTRY ── -->
+      <div id="pg-log-entry" class="pg">
+        <div class="pg-head"><div class="pg-title">Daily Log Entry</div><div class="pg-sub">John · mortality count + feed bags → auto-writes to 03_Broiler Live Log</div></div>
+        <div class="card">
+          <div class="ch"><div class="ct">Today's entry</div><span class="bdg bg">John / Iyanu</span></div>
+          <div class="cb">
+            <div class="fgrid">
+              <div class="fg"><label>Date (DD/MM/YYYY)</label><input id="dl-date" placeholder="25/08/2026"></div>
+              <div class="fg"><label>Batch</label>
+                <select id="dl-batch">
+                  <option value="19a">Batch 19a · Finisher (512)</option>
+                  <option value="19b">Batch 19b · Finisher (512)</option>
+                  <option value="20a">Batch 20a · Super Starter (510)</option>
+                </select>
+              </div>
+              <div class="fg"><label>Mortality count</label><input id="dl-mort" type="number" min="0" placeholder="0"></div>
+              <div class="fg"><label>Feed bags used</label><input id="dl-feed" type="number" min="0" step="0.5" placeholder="0.5"></div>
+              <div class="fg"><label>Notes (optional)</label><input id="dl-notes" placeholder="e.g. 2 birds found dead AM"></div>
+            </div>
+            <div class="brow">
+              <button class="btn btn-g" onclick="submitLog()">Save log entry ↗</button>
+              <button class="btn" onclick="clearLog()">Clear</button>
+            </div>
+            <div id="dl-res" style="display:none;margin-top:10px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">Entries this session</div></div>
+          <div class="tw"><table class="tbl"><thead><tr><th>Date</th><th>Batch</th><th>Mort</th><th>Feed</th><th>By</th><th>Status</th></tr></thead>
+          <tbody id="dl-session"><tr><td colspan="6" style="padding:14px;text-align:center;color:var(--c2)">No entries yet this session</td></tr></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- ── FEED STOCK ── -->
+      <div id="pg-feed" class="pg">
+        <div class="pg-head"><div class="pg-title">Feed Stock</div><div class="pg-sub">Current bags · cost · projected needs per batch</div></div>
+        <div id="feed-alerts"></div>
+        <div class="g3" id="feed-cards"></div>
+        <div class="card" style="margin-top:10px">
+          <div class="ch"><div class="ct">Projected feed needs (remaining rearing days)</div></div>
+          <div class="tw"><table class="tbl"><thead><tr><th>Batch</th><th>Feed</th><th>Days left</th><th>Est. bags</th><th>Est. cost (₦)</th><th>In stock</th><th>Shortfall</th></tr></thead>
+          <tbody id="feed-needs"></tbody></table></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">Log new feed delivery</div></div>
+          <div class="cb">
+            <div class="fgrid">
+              <div class="fg"><label>Delivery date</label><input id="fd-date" placeholder="DD/MM/YYYY"></div>
+              <div class="fg"><label>Feed code</label>
+                <select id="fd-code">
+                  <option value="510">510 — Broiler Super Starter (₦19,800)</option>
+                  <option value="511">511 — Broiler Grower (₦19,600)</option>
+                  <option value="512">512 — Broiler Finisher (₦19,500)</option>
+                  <option value="324">324 — Layer Mash (₦15,000)</option>
+                </select>
+              </div>
+              <div class="fg"><label>Bags received</label><input id="fd-bags" type="number" placeholder="0"></div>
+              <div class="fg"><label>Supplier</label><input id="fd-supp" placeholder="e.g. Hephzibah Feeds"></div>
+              <div class="fg"><label>Ref / invoice #</label><input id="fd-ref" placeholder="C&H.BR/LAY-020"></div>
+            </div>
+            <button class="btn btn-g" onclick="saveDelivery()">Save delivery ↗</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── BUYER QUOTE ── -->
+      <div id="pg-quote" class="pg">
+        <div class="pg-head"><div class="pg-title">Buyer Quote Agent</div><div class="pg-sub">Auto stock check · projection ETA · PDF download · writes to Sheet</div></div>
+        <div class="g2">
+          <div class="card">
+            <div class="ch"><div class="ct">New quote request</div><span class="bdg bt">Quote agent</span></div>
+            <div class="cb">
+              <div class="fg"><label>Customer name</label><input id="bq-name" placeholder="e.g. Adeyemi Butchery"></div>
+              <div class="fg"><label>Phone number</label><input id="bq-phone" placeholder="080XXXXXXXX"></div>
+              <div class="fg"><label>Product</label>
+                <select id="bq-prod" onchange="bqPrice()">
+                  <option value="Broiler Meat">Broiler Meat (per kg)</option>
+                  <option value="Pullet Eggs">Pullet Eggs (per crate / 30)</option>
+                  <option value="Medium Eggs">Medium Eggs (per crate / 30)</option>
+                  <option value="Whole Bird">Whole Bird live weight (per kg)</option>
+                </select>
+              </div>
+              <div class="fg"><label>Quantity (kg or crates)</label><input id="bq-qty" type="number" placeholder="100" oninput="bqTotal()"></div>
+              <div class="fg"><label>Unit price (₦)</label><input id="bq-price" type="number" value="4500" oninput="bqTotal()"></div>
+              <div class="fg"><label>Total value (₦)</label><input id="bq-total" readonly placeholder="auto"></div>
+              <div class="fg"><label>Delivery date</label><input id="bq-del" placeholder="DD/MM/YYYY"></div>
+              <div class="fg"><label>Payment terms</label>
+                <select id="bq-terms">
+                  <option>Cash on delivery</option>
+                  <option>50% deposit, balance on delivery</option>
+                  <option>30 days credit (approved accounts)</option>
+                  <option>Full prepayment</option>
+                </select>
+              </div>
+              <div class="fg"><label>Notes</label><input id="bq-notes" placeholder="Special requirements…"></div>
+              <div class="brow">
+                <button class="btn btn-t" onclick="genQuote()">Check stock & generate quote ↗</button>
+                <button class="btn" onclick="clearBQ()">Clear</button>
+              </div>
+            </div>
+          </div>
+          <div id="quote-result" style="display:none">
+            <div class="card">
+              <div class="ch"><div class="ct">Quote output</div><span class="bdg" id="q-badge"></span></div>
+              <div class="cb">
+                <div class="qout">
+                  <div class="ql"><span class="ql-l">Quote #</span><span id="q-num" style="font-family:monospace;font-weight:700"></span></div>
+                  <div class="ql"><span class="ql-l">Customer</span><span id="q-cust"></span></div>
+                  <div class="ql"><span class="ql-l">Product</span><span id="q-prod"></span></div>
+                  <div class="ql"><span class="ql-l">Quantity</span><span id="q-qty"></span></div>
+                  <div class="ql"><span class="ql-l">Unit price (₦)</span><span id="q-price"></span></div>
+                  <div class="ql"><span class="ql-l">Total value (₦)</span><span id="q-total" style="color:var(--g1);font-size:16px"></span></div>
+                  <div class="ql"><span class="ql-l">Payment terms</span><span id="q-terms"></span></div>
+                  <div class="ql"><span class="ql-l">Valid for</span><span>7 days from date</span></div>
+                </div>
+                <div id="q-avail"></div>
+                <div class="brow">
+                  <button class="btn btn-g" id="pdf-btn" onclick="dlPDF()">⬇ Download PDF</button>
+                  <button class="btn btn-sm" onclick="clearBQ()">New quote</button>
+                </div>
+                <div id="pdf-note" style="font-size:11px;color:var(--c2);margin-top:6px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ORDER REGISTER ── -->
+      <div id="pg-orders" class="pg">
+        <div class="pg-head"><div class="pg-title">Order Register</div><div class="pg-sub">All quotes this session · auto-saves to Sheet</div></div>
+        <div class="card">
+          <div class="ch"><div class="ct">Quotes generated</div><button class="btn btn-t btn-sm" onclick="nav('quote',null)">+ New quote</button></div>
+          <div class="tw">
+            <table class="tbl"><thead><tr><th>Quote #</th><th>Customer</th><th>Product</th><th>Qty</th><th>Total (₦)</th><th>Delivery</th><th>Status</th><th>ETA</th><th>PDF</th></tr></thead>
+            <tbody id="order-body"><tr><td colspan="9" style="padding:20px;text-align:center;color:var(--c2)">No quotes yet</td></tr></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── EGGS ── -->
+      <div id="pg-eggs" class="pg">
+        <div class="pg-head"><div class="pg-title">Egg Stock</div><div class="pg-sub">Taiwo · Pullet ₦3,800/crate · Medium ₦5,100/crate · Layer birds: 9,239</div></div>
+        <div class="krow">
+          <div class="kpi"><div class="kl">Medium closing</div><div class="kv" id="ek-med">38 crates</div></div>
+          <div class="kpi"><div class="kl">Pullet closing</div><div class="kv" id="ek-pul">40 crates</div></div>
+          <div class="kpi"><div class="kl">Medium price</div><div class="kv">₦5,100</div><div class="kd">per crate</div></div>
+          <div class="kpi"><div class="kl">Pullet price</div><div class="kv">₦3,800</div><div class="kd">per crate</div></div>
+          <div class="kpi"><div class="kl">Total revenue</div><div class="kv up">₦36.1M</div></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">Log today's harvest</div><span class="bdg bt">Taiwo</span></div>
+          <div class="cb">
+            <div class="fgrid">
+              <div class="fg"><label>Date</label><input id="eg-dt" placeholder="DD/MM/YYYY"></div>
+              <div class="fg"><label>Pullet opening (crates)</label><input id="eg-po" type="number" placeholder="40"></div>
+              <div class="fg"><label>Pullet collected today</label><input id="eg-pc" type="number" placeholder="0" oninput="calcEgg()"></div>
+              <div class="fg"><label>Pullet sold today</label><input id="eg-ps" type="number" placeholder="0" oninput="calcEgg()"></div>
+              <div class="fg"><label>Pullet closing (auto)</label><input id="eg-pcl" readonly></div>
+              <div class="fg"><label>Medium opening (crates)</label><input id="eg-mo" type="number" placeholder="38"></div>
+              <div class="fg"><label>Medium collected</label><input id="eg-mc" type="number" placeholder="0" oninput="calcEgg()"></div>
+              <div class="fg"><label>Medium sold</label><input id="eg-ms" type="number" placeholder="0" oninput="calcEgg()"></div>
+              <div class="fg"><label>Medium closing (auto)</label><input id="eg-mcl" readonly></div>
+              <div class="fg"><label>Daily revenue (₦)</label><input id="eg-rev" readonly></div>
+            </div>
+            <button class="btn btn-g" onclick="saveEgg()">Save egg log ↗</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DEPLOY / SETTINGS ── -->
+      <div id="pg-deploy" class="pg">
+        <div class="pg-head"><div class="pg-title">Deploy & Settings</div><div class="pg-sub">Connect backend · Render hosting · Google Sheet sync</div></div>
+        <div class="al al-b">📡 This dashboard talks to a Python backend. Deploy it once to Render and all data syncs to your Google Sheet automatically.</div>
+        <div class="card">
+          <div class="ch"><div class="ct">Backend API URL</div></div>
+          <div class="cb">
+            <div class="fg"><label>Render URL (after deployment)</label>
+              <input id="api-inp" placeholder="https://chfarms-api.onrender.com" value="">
+              <div class="hint">Leave blank to use localhost:5000 (local testing only)</div>
+            </div>
+            <div class="brow">
+              <button class="btn btn-g" onclick="setAPI()">Save & test connection</button>
+            </div>
+            <div id="api-result" style="font-size:12px;color:var(--c2);margin-top:8px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">6-step Render deployment</div></div>
+          <div class="cb" style="font-size:13px;line-height:1.8;color:var(--c1)">
+            <b>Step 1.</b> Sign up at <code>github.com</code> → New repo → name: <code>chfarms-api</code><br>
+            <b>Step 2.</b> Upload <code>app.py</code> + <code>requirements.txt</code> to the repo<br>
+            <b>Step 3.</b> Sign up at <code>render.com</code> → New Web Service → connect repo<br>
+            <b>Step 4.</b> Build: <code>pip install -r requirements.txt</code> · Start: <code>gunicorn app:app</code><br>
+            <b>Step 5.</b> Add env var: <code>GOOGLE_SHEET_ID = 1ajWKs867tssC1DqY-miGiLG61eNZIKoZCpv5x-18LvY</code><br>
+            <b>Step 6.</b> Copy Render URL → paste above → test connection ✅<br><br>
+            <b>Google Sheet sync:</b> Create Google Cloud Service Account → download JSON → share sheet with service account email as Editor → paste JSON as <code>GOOGLE_CREDENTIALS</code> env var on Render.
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">Offline sync — flush pending writes</div></div>
+          <div class="cb">
+            <p style="font-size:12.5px;color:var(--c2);margin-bottom:10px">Admin only. Pushes all queued entries to Google Sheet.</p>
+            <button class="btn btn-g" onclick="flushSync()">↑ Flush all pending to Sheet</button>
+            <span id="flush-res" style="font-size:12px;color:var(--c2);margin-left:10px"></span>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ── VACCINES ── -->
+      <div id="pg-vaccines" class="pg">
+        <div class="pg-head"><div class="pg-title">Vaccine & Drug Log</div><div class="pg-sub">Vitranor ₦10,000 · Lasota ₦3,500 · Gumboro ₦4,800 · DD Force ₦13,000</div></div>
+        <div class="krow">
+          <div class="kpi"><div class="kl">VITRANOR</div><div class="kv">₦10,000</div><div class="kd">per dose/vial</div></div>
+          <div class="kpi"><div class="kl">LASOTA</div><div class="kv">₦3,500</div><div class="kd">per dose</div></div>
+          <div class="kpi"><div class="kl">GUMBORO</div><div class="kv">₦4,800</div><div class="kd">per dose</div></div>
+          <div class="kpi"><div class="kl">DD FORCE</div><div class="kv">₦13,000</div><div class="kd">per dose</div></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">Vaccine schedule — all batches</div><button class="btn btn-g btn-sm" onclick="loadVaccines()">Refresh</button></div>
+          <div class="tw"><table class="tbl" id="vax-tbl">
+            <thead><tr><th>Batch</th><th>Day</th><th>Vaccine</th><th>Cost (₦)</th><th>Status</th></tr></thead>
+            <tbody id="vax-body"><tr><td colspan="5" class="lc">Loading…</td></tr></tbody>
+          </table></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">Log vaccine administration</div></div>
+          <div class="cb">
+            <div class="fgrid">
+              <div class="fg"><label>Date</label><input id="vx-dt" placeholder="DD/MM/YYYY"></div>
+              <div class="fg"><label>Batch</label>
+                <select id="vx-batch"><option value="19a">Batch 19a</option><option value="19b">Batch 19b</option><option value="20a">Batch 20a</option></select>
+              </div>
+              <div class="fg"><label>Vaccine / Drug</label>
+                <select id="vx-vax">
+                  <option value="VITRANOR">VITRANOR — ₦10,000</option>
+                  <option value="LASOTA">LASOTA — ₦3,500</option>
+                  <option value="GUMBORO">GUMBORO — ₦4,800</option>
+                  <option value="DD FORCE">DD FORCE — ₦13,000</option>
+                </select>
+              </div>
+              <div class="fg"><label>Doses administered</label><input id="vx-doses" type="number" placeholder="0"></div>
+              <div class="fg"><label>Protocol day</label><input id="vx-day" type="number" placeholder="7"></div>
+              <div class="fg"><label>Notes</label><input id="vx-notes" placeholder="e.g. administered in water"></div>
+            </div>
+            <button class="btn btn-g" onclick="saveVaccine()">Log vaccine ↗</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PROCESSING LOG ── -->
+      <div id="pg-processing" class="pg">
+        <div class="pg-head"><div class="pg-title">Processing Log</div><div class="pg-sub">Nana (supervisor) · B17=414 birds · B18=184 birds</div></div>
+        <div class="krow">
+          <div class="kpi"><div class="kl">B17 processed</div><div class="kv up">414 birds</div><div class="kd">20/07/2026</div></div>
+          <div class="kpi"><div class="kl">B18 processed</div><div class="kv up">184 birds</div><div class="kd">25/08/2026</div></div>
+          <div class="kpi"><div class="kl">Total birds processed</div><div class="kv">598</div></div>
+          <div class="kpi"><div class="kl">B19a est. revenue</div><div class="kv up" id="pr-19a">—</div><div class="kd">At ₦4,500/kg</div></div>
+          <div class="kpi"><div class="kl">B19b est. revenue</div><div class="kv up" id="pr-19b">—</div><div class="kd">At ₦4,500/kg</div></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">Log new processing session</div><span class="bdg ba">Nana</span></div>
+          <div class="cb">
+            <div class="fgrid">
+              <div class="fg"><label>Processing date</label><input id="pr-dt" placeholder="DD/MM/YYYY"></div>
+              <div class="fg"><label>Batch</label>
+                <select id="pr-batch"><option value="19a">Batch 19a (998 live)</option><option value="19b">Batch 19b (1,408 live)</option><option value="20a">Batch 20a (1,018 live)</option></select>
+              </div>
+              <div class="fg"><label>Birds processed</label><input id="pr-birds" type="number" placeholder="0" oninput="calcRevEst()"></div>
+              <div class="fg"><label>Avg live weight (kg/bird)</label><input id="pr-wt" type="number" step="0.1" placeholder="1.85" oninput="calcRevEst()"></div>
+              <div class="fg"><label>Price per kg (₦)</label><input id="pr-price" type="number" value="4500" oninput="calcRevEst()"></div>
+              <div class="fg"><label>Est. revenue (₦) — auto</label><input id="pr-rev" readonly></div>
+              <div class="fg"><label>Notes</label><input id="pr-notes" placeholder="e.g. cold room 3"></div>
+            </div>
+            <button class="btn btn-g" onclick="saveProcessing()">Save processing record ↗</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">Processing register</div></div>
+          <div class="tw"><table class="tbl" id="proc-tbl">
+            <thead><tr><th>Batch</th><th>Date</th><th>Birds</th><th>Wt (kg)</th><th>₦/kg</th><th>Revenue (₦)</th><th>Logged by</th></tr></thead>
+            <tbody id="proc-body">
+              <tr><td>17</td><td>20/07/2026</td><td>414</td><td>—</td><td>—</td><td>—</td><td>Nana</td></tr>
+              <tr><td>18</td><td>25/08/2026</td><td>184</td><td>—</td><td>—</td><td>—</td><td>Nana</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- ── ALERTS ── -->
+      <div id="pg-alerts" class="pg">
+        <div class="pg-head"><div class="pg-title">Alerts & Notifications</div><div class="pg-sub">Email · WhatsApp (CallMeBot free) · Auto mortality triggers</div></div>
+        <div class="al al-b">📡 Free alert options: <strong>Email via Gmail SMTP</strong> (no cost, setup once) · <strong>WhatsApp via CallMeBot</strong> (free, register your number once at callmebot.com) · <strong>Twilio WhatsApp sandbox</strong> (free trial)</div>
+        <div class="g2">
+          <div class="card">
+            <div class="ch"><div class="ct">Send email alert</div><span class="bdg bb">Gmail SMTP · Free</span></div>
+            <div class="cb">
+              <div class="fg"><label>To email</label><input id="al-email" placeholder="iyanu@chaptersheights.com"></div>
+              <div class="fg"><label>Subject</label><input id="al-subj" value="C&H Farms — Batch Alert"></div>
+              <div class="fg"><label>Message</label><textarea id="al-body" rows="3" placeholder="Type alert message…" style="padding:8px 10px;border:1.5px solid var(--c3);border-radius:var(--rad);font-size:13px;font-family:inherit;resize:vertical"></textarea></div>
+              <button class="btn btn-b" onclick="sendEmail()">Send email alert ↗</button>
+              <div id="email-res" style="font-size:12px;color:var(--c2);margin-top:6px"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ch"><div class="ct">Send WhatsApp alert</div><span class="bdg bg">CallMeBot · Free</span></div>
+            <div class="cb">
+              <div class="al al-g" style="font-size:12px">Setup: Go to wa.me/+34698891767 and send <strong>I allow callmebot to send me messages</strong> — you get a free API key instantly. Add it as CALLMEBOT_KEY env var on Render.</div>
+              <div class="fg"><label>Phone (with country code)</label><input id="wa-phone" placeholder="+2348012345678"></div>
+              <div class="fg"><label>Message</label><textarea id="wa-msg" rows="3" placeholder="Type WhatsApp message…" style="padding:8px 10px;border:1.5px solid var(--c3);border-radius:var(--rad);font-size:13px;font-family:inherit;resize:vertical">C&H Farms alert — check dashboard</textarea></div>
+              <button class="btn btn-g" onclick="sendWA()">Send WhatsApp ↗</button>
+              <div id="wa-res" style="font-size:12px;color:var(--c2);margin-top:6px"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">Auto mortality alert check</div><span class="bdg br">Triggered if &gt;5% or overdue</span></div>
+          <div class="cb">
+            <p style="font-size:13px;color:var(--c1);margin-bottom:10px">Checks all active batches. Sends email to configured ALERT_EMAIL if any batch exceeds 5% mortality or is overdue for processing. B19b currently at <strong>7.73%</strong> — will trigger.</p>
+            <button class="btn btn-a" onclick="checkMortAlerts()">Run mortality alert check ↗</button>
+            <div id="mort-res" style="font-size:12px;color:var(--c2);margin-top:8px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">Alert setup guide</div></div>
+          <div class="cb" style="font-size:13px;color:var(--c1);line-height:1.9">
+            <strong>Gmail SMTP (free email alerts):</strong><br>
+            1. Enable 2FA on your Gmail → Google Account → Security → App Passwords<br>
+            2. Generate an App Password → copy it<br>
+            3. Set env vars on Render: <code>GMAIL_USER=yourmail@gmail.com</code> · <code>GMAIL_PASS=your_app_password</code> · <code>ALERT_EMAIL=iyanu@email.com</code><br><br>
+            <strong>WhatsApp via CallMeBot (free, no subscription):</strong><br>
+            1. Open WhatsApp → send message to <strong>+34 698 891 767</strong>: "I allow callmebot to send me messages"<br>
+            2. You receive your free API key in reply<br>
+            3. Set on Render: <code>CALLMEBOT_KEY=your_key</code> · <code>WHATSAPP_PHONE=+2348012345678</code>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════
+let API_URL  = localStorage.getItem('ch_api') || 'http://localhost:5000';
+let TOKEN    = localStorage.getItem('ch_tok')  || null;
+let ROLE     = localStorage.getItem('ch_role') || null;
+let UNAME    = localStorage.getItem('ch_name') || null;
+let SELUSER  = null;
+let PENDING  = 0;
+let LAST_Q   = null;
+let ALL_Q    = [];
+let LOG_SESS = [];
+let IS_ONLINE= navigator.onLine;
+
+// ═══════════════════════════════════════
+// WALKTHROUGH
+// ═══════════════════════════════════════
+let WT_STEP = 0;
+const WT_TOTAL = 7;
+function wtNav(dir) {
+  WT_STEP = Math.max(0, Math.min(WT_TOTAL-1, WT_STEP+dir));
+  const inner = document.getElementById('wt-inner');
+  const stepW = document.querySelector('.wt-step').offsetWidth || 520;
+  inner.style.transform = `translateX(-${WT_STEP * stepW}px)`;
+  document.getElementById('wt-step-txt').textContent = `Step ${WT_STEP+1} of ${WT_TOTAL}`;
+  document.getElementById('wt-prog').style.width = ((WT_STEP+1)/WT_TOTAL*100)+'%';
+  document.getElementById('wt-prev').style.display = WT_STEP>0?'':'none';
+  const nxt = document.getElementById('wt-next');
+  if (WT_STEP===WT_TOTAL-1) { nxt.textContent='Start using the system →'; nxt.onclick=closeWT; }
+  else { nxt.textContent='Next →'; nxt.onclick=()=>wtNav(1); }
+}
+function closeWT() {
+  document.getElementById('wt-overlay').classList.add('hidden');
+  localStorage.setItem('ch_wt_done','1');
+}
+// Don't show walkthrough on reload if already seen
+if (localStorage.getItem('ch_wt_done')) closeWT();
+
+// ═══════════════════════════════════════
+// ONLINE/OFFLINE
+// ═══════════════════════════════════════
+window.addEventListener('online',  ()=>{ IS_ONLINE=true;  updateSync(); autoFlush(); });
+window.addEventListener('offline', ()=>{ IS_ONLINE=false; updateSync(); });
+function updateSync() {
+  document.getElementById('obar').className = IS_ONLINE?'':'on';
+  const cp = document.getElementById('chip-pending');
+  const cl = document.getElementById('chip-live');
+  if (PENDING>0) { cp.style.display=''; cp.textContent=`${PENDING} pending`; }
+  else { cp.style.display='none'; }
+  cl.className = 'chip '+(IS_ONLINE?'ok':'');
+  cl.textContent = IS_ONLINE?'● Live':'● Offline';
+  const sb = document.getElementById('sync-btn');
+  if (sb) { sb.className='tb-btn'+(PENDING>0?' hot':''); sb.textContent=PENDING>0?`↑ Sync (${PENDING})`:'↑ Sync'; }
+  const kv = document.getElementById('kv-sync');
+  if (kv) { kv.textContent=PENDING; kv.className='kv'+(PENDING>0?' warn':''); }
+}
+
+// ═══════════════════════════════════════
+// API
+// ═══════════════════════════════════════
+async function api(method, path, body=null) {
+  try {
+    const r = await fetch(API_URL+path, {
+      method,
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},
+      body: body ? JSON.stringify(body) : null,
+      signal: AbortSignal.timeout(8000),
+    });
+    IS_ONLINE=true; updateSync();
+    return await r.json();
+  } catch(e) {
+    IS_ONLINE=false; updateSync();
+    return {ok:false,msg:'Offline',offline:true};
+  }
+}
+
+// ═══════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════
+function selU(u,el) {
+  SELUSER=u;
+  document.querySelectorAll('.u-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('pin').focus();
+}
+async function doLogin() {
+  const pin = document.getElementById('pin').value.trim();
+  const err = document.getElementById('lerr');
+  if (!SELUSER) { err.textContent='Select a user first'; return; }
+  if (!pin)     { err.textContent='Enter your PIN'; return; }
+  err.textContent='';
+  const d = await api('POST','/api/login',{username:SELUSER,pin});
+  if (d.ok) {
+    TOKEN=d.token; ROLE=d.role; UNAME=d.name;
+    localStorage.setItem('ch_tok',TOKEN);
+    localStorage.setItem('ch_role',ROLE);
+    localStorage.setItem('ch_name',UNAME);
+    bootApp();
+  } else if (d.offline) {
+    const pins={iyanu:'1234',john:'2001',taiwo:'3001',nana:'4001',sunday:'5001'};
+    if (pins[SELUSER]===pin) {
+      TOKEN='offline'; ROLE='admin'; UNAME=SELUSER;
+      document.getElementById('loff').style.display='block';
+      bootApp();
+    } else { err.textContent='Wrong PIN'; }
+  } else {
+    err.textContent = d.msg || 'Login failed';
+  }
+}
+function bootApp() {
+  document.getElementById('login-screen').style.display='none';
+  const app=document.getElementById('app'); app.className='on';
+  document.getElementById('chip-user').textContent=UNAME;
+  document.getElementById('chip-role').textContent=ROLE;
+  // set today in forms
+  const td=new Date(), dd=String(td.getDate()).padStart(2,'0'),
+        mm=String(td.getMonth()+1).padStart(2,'0'), yy=td.getFullYear();
+  const dstr=`${dd}/${mm}/${yy}`;
+  ['dl-date','eg-dt','fd-date'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=dstr;});
+  document.getElementById('api-inp').value=API_URL!=='http://localhost:5000'?API_URL:'';
+  loadDash();
+}
+function doLogout() {
+  api('POST','/api/logout');
+  localStorage.removeItem('ch_tok'); localStorage.removeItem('ch_role'); localStorage.removeItem('ch_name');
+  location.reload();
+}
+
+// ═══════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════
+function nav(id, el) {
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('on'));
+  const pg=document.getElementById('pg-'+id);
+  if(pg) pg.classList.add('on');
+  if(el) el.classList.add('on');
+  if(id==='batches') loadBatches();
+  if(id==='feed')    loadFeed();
+  if(id==='eggs')    loadEggs();
+  if(id==='orders')  renderOrders();
+}
+
+// ═══════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════
+async function loadDash() {
+  const d = await api('GET','/api/dashboard/summary');
+  if (!d.ok) { toast('Server unreachable — offline mode','warn'); return; }
+
+  document.getElementById('dash-sub').textContent =
+    `${new Date().toLocaleDateString('en-GB')} · FRP · Live count: ${d.total_live_birds?.toLocaleString()} birds`;
+  document.getElementById('kv-live').textContent  = (d.total_live_birds||0).toLocaleString();
+  document.getElementById('kv-od').textContent    = (d.alerts||[]).length;
+  const s = d.batch_stats||{};
+  document.getElementById('kv-m19a').textContent  = s['19a']?`${s['19a'].cumulative_mortality} (${s['19a'].mortality_pct}%)`:'—';
+  document.getElementById('kv-m19b').textContent  = s['19b']?`${s['19b'].cumulative_mortality} (${s['19b'].mortality_pct}%)`:'—';
+  document.getElementById('kv-d20a').textContent  = s['20a']?`Day ${s['20a'].day}/35`:'—';
+  PENDING = d.offline_queue||0; updateSync();
+
+  // Alerts
+  const ae=document.getElementById('dash-alerts'); ae.innerHTML='';
+  (d.alerts||[]).forEach(a=>{
+    ae.innerHTML+=`<div class="al al-r">🚨 <div><strong>Batch ${a.batch}</strong> — ${a.msg} · Mortality: ${a.mort_pct}%</div></div>`;
+  });
+  if ((d.alerts||[]).length===0) {
+    ae.innerHTML='<div class="al al-g">✅ No critical alerts — all batches within tolerance</div>';
+  }
+  const sba=document.getElementById('sb-alert');
+  if(sba) sba.style.display=(d.alerts||[]).length>0?'':'none';
+
+  // Batch cards
+  const gc=document.getElementById('dash-batch-cards'); gc.innerHTML='';
+  Object.values(s).forEach(b=>{
+    const cls=b.overdue?'ov':b.mortality_pct>3?'wa':'ok';
+    const bc=b.overdue?'br':b.mortality_pct>3?'ba':'bg';
+    gc.innerHTML+=`<div class="bc ${cls}">
+      <div class="bc-top"><div class="bc-n">Batch ${b.batch}</div><span class="bdg ${bc}">${b.overdue?'OVERDUE':'Day '+b.day}</span></div>
+      <div style="font-size:11px;color:var(--c2)">${b.arrival} · ${b.feed_name}</div>
+      <div style="font-size:11.5px;font-weight:500;margin-top:3px;color:${b.overdue?'var(--r1)':'var(--c1)'}">${b.status}</div>
+      <div class="bc-sg">
+        <div class="bc-s"><div class="bc-sl">Live</div><div class="bc-sv">${b.live_birds?.toLocaleString()}</div></div>
+        <div class="bc-s"><div class="bc-sl">Mortality</div><div class="bc-sv ${b.mortality_pct>5?'dn':''}">${b.cumulative_mortality}</div></div>
+        <div class="bc-s"><div class="bc-sl">Mort %</div><div class="bc-sv ${b.mortality_pct>5?'dn':b.mortality_pct>2?'warn':'up'}">${b.mortality_pct}%</div></div>
+      </div>
+      <div class="bc-proc"><span>Processing: <strong>${b.processing_date}</strong></span><span>${b.days_to_processing>0?`${b.days_to_processing}d left`:`Overdue ${Math.abs(b.days_to_processing)}d`}</span></div>
+    </div>`;
+  });
+}
+
+// ═══════════════════════════════════════
+// BATCHES
+// ═══════════════════════════════════════
+async function loadBatches() {
+  const d = await api('GET','/api/batches');
+  if (!d.ok) return;
+  const cards=document.getElementById('batch-cards'); cards.innerHTML='';
+  const alts=document.getElementById('batch-alerts'); alts.innerHTML='';
+  Object.values(d.batches).forEach(b=>{
+    const cls=b.overdue?'ov':b.mortality_pct>3?'wa':'ok';
+    const bc=b.overdue?'br':b.mortality_pct>3?'ba':'bg';
+    if(b.overdue||b.mortality_pct>5){
+      alts.innerHTML+=`<div class="al al-r">🚨 <div><strong>Batch ${b.batch}:</strong> ${b.status} · Mortality ${b.mortality_pct}% · Processing was ${b.processing_date}</div></div>`;
+    }
+    cards.innerHTML+=`<div class="bc ${cls}">
+      <div class="bc-top"><div class="bc-n">Batch ${b.batch}</div><span class="bdg ${bc}">${b.overdue?'PROCESS NOW':'Active · Day '+b.day}</span></div>
+      <div style="font-size:11px;color:var(--c2);margin-bottom:4px">${b.arrival} · ${b.supplier}</div>
+      <div style="font-size:11.5px;font-weight:600">${b.feed_name} <span style="font-weight:400;color:var(--c2)">(Code ${b.feed_code})</span></div>
+      <div class="bc-sg">
+        <div class="bc-s"><div class="bc-sl">Opening</div><div class="bc-sv">${b.opening?.toLocaleString()}</div></div>
+        <div class="bc-s"><div class="bc-sl">Live birds</div><div class="bc-sv">${b.live_birds?.toLocaleString()}</div></div>
+        <div class="bc-s"><div class="bc-sl">Mortality</div><div class="bc-sv ${b.mortality_pct>5?'dn':''}">${b.cumulative_mortality}</div></div>
+        <div class="bc-s"><div class="bc-sl">Mort %</div><div class="bc-sv ${b.mortality_pct>5?'dn':b.mortality_pct>2?'warn':'up'}">${b.mortality_pct}%</div></div>
+        <div class="bc-s"><div class="bc-sl">Feed used</div><div class="bc-sv">${b.feed_bags_used} bags</div></div>
+        <div class="bc-s"><div class="bc-sl">Feed cost</div><div class="bc-sv">₦${(b.feed_cost/1000).toFixed(0)}k</div></div>
+        <div class="bc-s"><div class="bc-sl">DOC cost</div><div class="bc-sv">₦${(b.doc_cost/1e6).toFixed(2)}M</div></div>
+        <div class="bc-s"><div class="bc-sl">Total cost</div><div class="bc-sv">₦${(b.total_cost_to_date/1e6).toFixed(2)}M</div></div>
+        <div class="bc-s"><div class="bc-sl">Cost/bird</div><div class="bc-sv">₦${b.unit_cost_per_bird?.toLocaleString()}</div></div>
+      </div>
+      <div class="bc-proc"><span>Processing: <strong>${b.processing_date}</strong></span><span style="font-weight:600;color:${b.overdue?'var(--r1)':'var(--c1)'}">${b.days_to_processing>0?`${b.days_to_processing}d remaining`:`OVERDUE ${Math.abs(b.days_to_processing)}d`}</span></div>
+    </div>`;
+  });
+  loadLog();
+}
+
+async function loadLog() {
+  const batch=document.getElementById('log-sel')?.value||'19a';
+  const tbody=document.getElementById('log-body');
+  if(!tbody) return;
+  tbody.innerHTML='<tr><td colspan="8" class="lc"><span class="spin"></span>Loading…</td></tr>';
+  const d=await api('GET',`/api/daily_log?batch=${batch}`);
+  if(!d.ok){tbody.innerHTML='<tr><td colspan="8" class="lc">No data</td></tr>';return;}
+  if(!d.log.length){tbody.innerHTML='<tr><td colspan="8" class="lc">No records for this batch</td></tr>';return;}
+  tbody.innerHTML=d.log.map(r=>`<tr>
+    <td>${r.date}</td><td><strong>${r.batch}</strong></td>
+    <td class="${r.mort>5?'dn':''}">${r.mort}</td><td>${r.feed}</td>
+    <td>${r.cumulative_mort}</td>
+    <td class="${r.mort_pct>5?'dn':r.mort_pct>2?'warn':'up'}">${r.mort_pct}%</td>
+    <td><strong>${r.live_count?.toLocaleString()}</strong></td><td>${r.cumulative_feed}</td>
+  </tr>`).join('');
+}
+
+// ═══════════════════════════════════════
+// DAILY LOG
+// ═══════════════════════════════════════
+async function submitLog() {
+  const date  = document.getElementById('dl-date').value.trim();
+  const batch = document.getElementById('dl-batch').value;
+  const mort  = parseFloat(document.getElementById('dl-mort').value)||0;
+  const feed  = parseFloat(document.getElementById('dl-feed').value)||0;
+  const notes = document.getElementById('dl-notes').value;
+  if(!date||!batch){toast('Enter date and select batch','err');return;}
+  const d=await api('POST','/api/daily_log',{date,batch,mort,feed,notes});
+  const res=document.getElementById('dl-res');
+  res.style.display='block';
+  if(d.ok){
+    res.className='al al-g';
+    res.innerHTML=`✅ Saved — Batch ${batch} · ${date} · ${mort} mortality · ${feed} bags feed · Queue: ${d.queued} pending`;
+    PENDING=d.queued||PENDING+1; updateSync();
+    LOG_SESS.unshift({date,batch,mort,feed,by:UNAME,status:d.offline?'Queued':'Saved'});
+    refreshLogSess(); clearLog(); toast('Daily log entry saved');
+  } else {
+    res.className='al al-r';
+    res.innerHTML='Error: '+(d.msg||'Save failed');
+  }
+}
+function clearLog(){['dl-mort','dl-feed','dl-notes'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); document.getElementById('dl-res').style.display='none';}
+function refreshLogSess(){
+  const tb=document.getElementById('dl-session');
+  if(!tb)return;
+  if(!LOG_SESS.length){tb.innerHTML='<tr><td colspan="6" style="padding:12px;text-align:center;color:var(--c2)">No entries yet</td></tr>';return;}
+  tb.innerHTML=LOG_SESS.slice(0,12).map(r=>`<tr><td>${r.date}</td><td><strong>${r.batch}</strong></td><td>${r.mort}</td><td>${r.feed}</td><td>${r.by}</td><td><span class="bdg ${r.status==='Saved'?'bg':'ba'}">${r.status}</span></td></tr>`).join('');
+}
+
+// ═══════════════════════════════════════
+// FEED STOCK
+// ═══════════════════════════════════════
+async function loadFeed() {
+  const d=await api('GET','/api/feed_stock');
+  if(!d.ok)return;
+  const cards=document.getElementById('feed-cards'); cards.innerHTML='';
+  const alts=document.getElementById('feed-alerts'); alts.innerHTML='';
+  Object.entries(d.feed_stock).forEach(([code,f])=>{
+    const pct=f.status==='ZERO'?0:f.status==='Low'?20:70;
+    const pfc=f.status==='ZERO'?'pf-r':f.status==='Low'?'pf-a':'pf-g';
+    const bc=f.status==='ZERO'?'br':f.status==='Low'?'ba':'bg';
+    if(f.status==='ZERO'||f.status==='Low'){
+      alts.innerHTML+=`<div class="al al-${f.status==='ZERO'?'r':'a'}">${f.status==='ZERO'?'🚨':'⚠'} <strong>${f.name} (${code})</strong> — ${f.status} · ${f.bags} bags in stock</div>`;
+    }
+    cards.innerHTML+=`<div class="card" style="margin-bottom:0"><div class="ch"><div class="ct">${f.name}</div><span class="bdg ${bc}">${f.status}</span></div><div class="cb">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:24px;font-weight:800;color:${f.status==='ZERO'?'var(--r1)':f.status==='Low'?'var(--a1)':'var(--g1)'}">${f.bags} bags</span><span style="font-size:11px;color:var(--c2)">Code ${code}</span></div>
+      <div class="prog"><div class="pf ${pfc}" style="width:${pct}%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--c2);margin-top:4px"><span>₦${f.price?.toLocaleString()}/bag</span><span>Value: ₦${f.value?.toLocaleString()}</span></div>
+      <div style="font-size:11px;color:var(--c2);margin-top:3px">${f.phase||''} · Used by: ${(f.used_by||[]).join(', ')||'—'}</div>
+    </div></div>`;
+  });
+
+  const bs=await api('GET','/api/batches');
+  const needs=document.getElementById('feed-needs'); needs.innerHTML='';
+  if(bs.ok){
+    Object.values(bs.batches).forEach(b=>{
+      const dl=Math.max(0,b.days_to_processing);
+      const eb=Math.round(dl*5);
+      const fp=d.feed_prices?.[b.feed_code]?.price||0;
+      const ec=eb*fp;
+      const instock=d.feed_stock?.[b.feed_code]?.bags||0;
+      const shortfall=Math.max(0,eb-instock);
+      needs.innerHTML+=`<tr>
+        <td><strong>Batch ${b.batch}</strong></td><td>${b.feed_name} (${b.feed_code})</td>
+        <td>${dl}d</td><td>${eb} bags</td><td>₦${ec.toLocaleString()}</td>
+        <td>${instock} bags</td>
+        <td class="${shortfall>0?'dn':''}">${shortfall>0?`-${shortfall} bags shortage`:'OK'}</td>
+      </tr>`;
+    });
+  }
+}
+
+async function saveDelivery(){
+  const code=document.getElementById('fd-code').value;
+  const bags=parseInt(document.getElementById('fd-bags').value)||0;
+  const date=document.getElementById('fd-date').value;
+  const supp=document.getElementById('fd-supp').value;
+  if(!bags||!date){toast('Enter date and bag count','err');return;}
+  const d=await api('POST','/api/feed_stock',{code,bags,date,supplier:supp,ref:document.getElementById('fd-ref').value});
+  if(d.ok){toast(`Feed delivery saved — new total: ${d.new_total} bags`,'ok'); loadFeed(); PENDING++; updateSync();}
+  else toast('Save failed','err');
+}
+
+// ═══════════════════════════════════════
+// BUYER QUOTE
+// ═══════════════════════════════════════
+const BQ_PRICES={'Broiler Meat':4500,'Pullet Eggs':3800,'Medium Eggs':5100,'Whole Bird':3800};
+function bqPrice(){ const p=document.getElementById('bq-prod').value; document.getElementById('bq-price').value=BQ_PRICES[p]||4500; bqTotal(); }
+function bqTotal(){ const q=+document.getElementById('bq-qty').value||0,p=+document.getElementById('bq-price').value||0; document.getElementById('bq-total').value=q&&p?'₦'+(q*p).toLocaleString():''; }
+
+async function genQuote(){
+  const name=document.getElementById('bq-name').value.trim();
+  const qty=+document.getElementById('bq-qty').value||0;
+  if(!name||!qty){toast('Enter customer name and quantity','err');return;}
+  const d=await api('POST','/api/quote',{
+    customer_name:name,phone:document.getElementById('bq-phone').value,
+    product:document.getElementById('bq-prod').value,quantity:qty,
+    unit_price:+document.getElementById('bq-price').value||4500,
+    delivery_date:document.getElementById('bq-del').value,
+    payment_terms:document.getElementById('bq-terms').value,
+    notes:document.getElementById('bq-notes').value,
+  });
+  let q=d.quote;
+  if(!q){
+    // Offline fallback
+    const prod=document.getElementById('bq-prod').value;
+    const price=+document.getElementById('bq-price').value||4500;
+    q={quote_number:`CHF-OFFLINE-${Date.now()}`,customer_name:name,phone:document.getElementById('bq-phone').value,
+       product:prod,quantity:qty,unit_price:price,total_value:qty*price,
+       delivery_date:document.getElementById('bq-del').value,
+       payment_terms:document.getElementById('bq-terms').value,
+       quote_date:new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}).split('/').join('/'),
+       status:'PROJECTION QUOTE',availability_eta:'TBC — pending server sync',is_projection:true,valid_days:7,agent:UNAME};
+    PENDING++; updateSync();
+  }
+  LAST_Q=q; ALL_Q.unshift(q);
+  renderQuote(q); toast('Quote generated — '+q.quote_number,'ok');
+}
+
+function renderQuote(q){
+  document.getElementById('quote-result').style.display='block';
+  document.getElementById('q-num').textContent  = q.quote_number;
+  document.getElementById('q-cust').textContent = q.customer_name+(q.phone?' · '+q.phone:'');
+  document.getElementById('q-prod').textContent = q.product;
+  const unit=q.product.includes('Meat')||q.product.includes('Bird')?'kg':'crates';
+  document.getElementById('q-qty').textContent  = `${q.quantity} ${unit}`;
+  document.getElementById('q-price').textContent= `₦${Number(q.unit_price).toLocaleString()} / ${unit}`;
+  document.getElementById('q-total').textContent= `₦${Number(q.total_value).toLocaleString()}`;
+  document.getElementById('q-terms').textContent= q.payment_terms;
+  const badge=document.getElementById('q-badge');
+  badge.textContent=q.status; badge.className='bdg '+(q.status==='CONFIRMED'?'bt':'ba');
+  document.getElementById('q-avail').innerHTML=q.is_projection
+    ?`<div class="avail-proj">📅 <strong>PROJECTION QUOTE</strong><br>Expected availability: <strong>${q.availability_eta}</strong><br>Subject to flock availability & processing schedule. Valid ${q.valid_days} days.</div>`
+    :`<div class="avail-ok">✅ <strong>CONFIRMED</strong><br>Stock available · Ready for delivery by ${q.delivery_date}</div>`;
+  document.getElementById('pdf-note').textContent=q.quote_number.includes('OFFLINE')
+    ?'⚡ Offline — PDF available after sync to server':'';
+}
+
+function clearBQ(){
+  ['bq-name','bq-phone','bq-qty','bq-del','bq-notes','bq-total'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  document.getElementById('quote-result').style.display='none'; LAST_Q=null;
+}
+
+async function dlPDF(){
+  if(!LAST_Q){toast('No quote loaded','err');return;}
+  if(LAST_Q.quote_number.includes('OFFLINE')){toast('PDF available after sync','err');return;}
+  const btn=document.getElementById('pdf-btn');
+  btn.disabled=true; btn.textContent='⏳ Generating…';
+  try{
+    const r=await fetch(`${API_URL}/api/quote/${LAST_Q.quote_number}/pdf`,{headers:{'Authorization':`Bearer ${TOKEN}`},signal:AbortSignal.timeout(15000)});
+    const blob=await r.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=`CHFarms_${LAST_Q.quote_number}.pdf`; a.click();
+    URL.revokeObjectURL(url);
+    toast('PDF downloaded ✅','ok');
+  }catch(e){toast('PDF failed — check connection','err');}
+  btn.disabled=false; btn.textContent='⬇ Download PDF';
+}
+
+// ═══════════════════════════════════════
+// ORDERS
+// ═══════════════════════════════════════
+function renderOrders(){
+  const tb=document.getElementById('order-body');
+  if(!ALL_Q.length){tb.innerHTML='<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--c2)">No quotes generated yet</td></tr>';return;}
+  tb.innerHTML=ALL_Q.map(q=>`<tr>
+    <td style="font-family:monospace;font-size:11.5px">${q.quote_number}</td>
+    <td>${q.customer_name}</td><td>${q.product}</td><td>${q.quantity}</td>
+    <td>₦${Number(q.total_value).toLocaleString()}</td><td>${q.delivery_date||'—'}</td>
+    <td><span class="bdg ${q.status==='CONFIRMED'?'bt':'ba'}">${q.status}</span></td>
+    <td style="font-size:11.5px">${q.availability_eta||'—'}</td>
+    <td><button class="btn btn-sm" onclick="LAST_Q=ALL_Q.find(x=>x.quote_number==='${q.quote_number}');dlPDF()">PDF</button></td>
+  </tr>`).join('');
+}
+
+// ═══════════════════════════════════════
+// EGGS
+// ═══════════════════════════════════════
+async function loadEggs(){
+  const d=await api('GET','/api/egg_stock');
+  if(!d.ok)return;
+  document.getElementById('ek-med').textContent=d.medium_closing+' crates';
+  document.getElementById('ek-pul').textContent=d.pullet_closing+' crates';
+}
+function calcEgg(){
+  const po=+document.getElementById('eg-po').value||0,pc=+document.getElementById('eg-pc').value||0,ps=+document.getElementById('eg-ps').value||0;
+  const mo=+document.getElementById('eg-mo').value||0,mc=+document.getElementById('eg-mc').value||0,ms=+document.getElementById('eg-ms').value||0;
+  document.getElementById('eg-pcl').value=po+pc-ps;
+  document.getElementById('eg-mcl').value=mo+mc-ms;
+  const rev=ps*3800+ms*5100;
+  document.getElementById('eg-rev').value=rev?'₦'+rev.toLocaleString():'';
+}
+function saveEgg(){ toast('Egg log saved — queued for sync','ok'); PENDING++; updateSync(); }
+
+// ═══════════════════════════════════════
+// SYNC
+// ═══════════════════════════════════════
+async function flushSync(){
+  if(ROLE!=='admin'&&TOKEN!=='offline'){toast('Admin access required','err');return;}
+  const d=await api('POST','/api/sync/flush');
+  const fr=document.getElementById('flush-res');
+  if(d.ok){
+    PENDING=0; updateSync();
+    toast(`✅ ${d.flushed} writes flushed to Google Sheet`,'ok');
+    if(fr) fr.textContent=`Last sync: ${new Date().toLocaleTimeString()} · ${d.flushed} writes sent`;
+  } else {
+    toast('Sync failed: '+(d.msg||'Check connection'),'err');
+  }
+}
+async function autoFlush(){ if(PENDING>0&&IS_ONLINE&&(ROLE==='admin'||TOKEN==='offline')) flushSync(); }
+
+// ═══════════════════════════════════════
+// DEPLOY SETTINGS
+// ═══════════════════════════════════════
+async function setAPI(){
+  const v=document.getElementById('api-inp').value.trim();
+  const url=v||'http://localhost:5000';
+  API_URL=url; localStorage.setItem('ch_api',url);
+  const res=document.getElementById('api-result');
+  res.textContent='Testing…';
+  try{
+    const r=await fetch(url+'/api/health',{signal:AbortSignal.timeout(5000)});
+    const d=await r.json();
+    if(d.ok){ res.textContent=`✅ Connected — ${d.service} v${d.version}`; res.style.color='var(--g1)'; toast('API connected!','ok'); IS_ONLINE=true; updateSync();}
+  }catch(e){ res.textContent=`❌ Cannot reach ${url} — deploy first or check URL`; res.style.color='var(--r1)'; }
+}
+
+// ═══════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════
+function toast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='on'+(type==='err'?' err':type==='ok'?' ok':'');
+  clearTimeout(t._t);
+  t._t=setTimeout(()=>t.className='',3200);
+}
+
+// ── INIT ──
+updateSync();
+if(TOKEN&&TOKEN!=='offline') bootApp();
+else if(TOKEN==='offline'){ UNAME=localStorage.getItem('ch_name')||'User'; ROLE='admin'; bootApp(); }
+
+// ═══════════════════════════════════════
+// VACCINES
+// ═══════════════════════════════════════
+async function loadVaccines(){
+  const d=await api('GET','/api/vaccines');
+  if(!d.ok)return;
+  const tb=document.getElementById('vax-body');
+  tb.innerHTML=d.schedule.map(v=>`<tr>
+    <td><strong>${v.batch}</strong></td><td>Day ${v.day}</td>
+    <td>${v.vaccine}</td><td>₦${v.price?.toLocaleString()}</td>
+    <td><span class="bdg ${v.status==='Done'?'bg':v.status==='Scheduled'?'bb':'ba'}">${v.status}</span></td>
+  </tr>`).join('');
+  // Processing revenue estimates
+  const d2=await api('GET','/api/batches');
+  if(d2.ok){
+    const p19a=document.getElementById('pr-19a');
+    const p19b=document.getElementById('pr-19b');
+    if(p19a&&d2.batches['19a']){const rev=d2.batches['19a'].live_birds*1.85*4500;p19a.textContent='₦'+Math.round(rev).toLocaleString();}
+    if(p19b&&d2.batches['19b']){const rev=d2.batches['19b'].live_birds*1.85*4500;p19b.textContent='₦'+Math.round(rev).toLocaleString();}
+  }
+}
+async function saveVaccine(){
+  const d=await api('POST','/api/vaccines',{
+    date:document.getElementById('vx-dt').value,
+    batch:document.getElementById('vx-batch').value,
+    vaccine:document.getElementById('vx-vax').value,
+    doses:+document.getElementById('vx-doses').value||0,
+    protocol_day:+document.getElementById('vx-day').value||0,
+    notes:document.getElementById('vx-notes').value,
+  });
+  if(d.ok){toast('Vaccine log saved ✅','ok');PENDING++;updateSync();}
+  else toast('Save failed','err');
+}
+
+// ═══════════════════════════════════════
+// PROCESSING
+// ═══════════════════════════════════════
+function calcRevEst(){
+  const birds=+document.getElementById('pr-birds').value||0;
+  const wt=+document.getElementById('pr-wt').value||0;
+  const price=+document.getElementById('pr-price').value||0;
+  const rev=birds*wt*price;
+  document.getElementById('pr-rev').value=rev?'₦'+rev.toLocaleString():'';
+}
+async function loadProcEst(){
+  const d=await api('GET','/api/batches');
+  if(!d.ok)return;
+  const p19a=document.getElementById('pr-19a');
+  const p19b=document.getElementById('pr-19b');
+  if(p19a&&d.batches['19a']){const r=d.batches['19a'].live_birds*1.85*4500;p19a.textContent='₦'+Math.round(r).toLocaleString();}
+  if(p19b&&d.batches['19b']){const r=d.batches['19b'].live_birds*1.85*4500;p19b.textContent='₦'+Math.round(r).toLocaleString();}
+}
+async function saveProcessing(){
+  const batch=document.getElementById('pr-batch').value;
+  const birds=+document.getElementById('pr-birds').value||0;
+  const wt=+document.getElementById('pr-wt').value||0;
+  const price=+document.getElementById('pr-price').value||0;
+  const date=document.getElementById('pr-dt').value;
+  if(!date||!birds){toast('Enter date and birds processed','err');return;}
+  const d=await api('POST','/api/processing',{batch,birds,weight_kg:birds*wt,price_per_kg:price,date,note:document.getElementById('pr-notes').value});
+  if(d.ok){
+    const rev=d.event.revenue;
+    toast(`Processing saved — ₦${rev.toLocaleString()} revenue ✅`,'ok');
+    PENDING++;updateSync();
+    // Add to table
+    const tb=document.getElementById('proc-body');
+    const row=document.createElement('tr');
+    row.style.background='var(--g5)';
+    row.innerHTML=`<td><strong>${batch}</strong></td><td>${date}</td><td>${birds}</td><td>${(birds*wt).toFixed(0)}</td><td>₦${price.toLocaleString()}</td><td>₦${rev.toLocaleString()}</td><td>${UNAME}</td>`;
+    tb.insertBefore(row,tb.firstChild);
+  } else toast('Save failed','err');
+}
+
+// ═══════════════════════════════════════
+// ALERTS
+// ═══════════════════════════════════════
+async function sendEmail(){
+  const to=document.getElementById('al-email').value.trim();
+  const subject=document.getElementById('al-subj').value;
+  const body=document.getElementById('al-body').value;
+  if(!to||!body){toast('Enter recipient and message','err');return;}
+  const d=await api('POST','/api/alert/email',{to,subject,body});
+  const res=document.getElementById('email-res');
+  res.textContent=d.ok?'✅ Email sent: '+d.msg:'❌ '+d.msg;
+  res.style.color=d.ok?'var(--g1)':'var(--r1)';
+  if(d.ok)toast('Email alert sent ✅','ok');
+}
+async function sendWA(){
+  const phone=document.getElementById('wa-phone').value.trim();
+  const message=document.getElementById('wa-msg').value.trim();
+  if(!phone||!message){toast('Enter phone and message','err');return;}
+  const d=await api('POST','/api/alert/whatsapp',{phone,message});
+  const res=document.getElementById('wa-res');
+  if(d.ok){res.textContent='✅ WhatsApp sent via '+d.provider;res.style.color='var(--g1)';toast('WhatsApp sent ✅','ok');}
+  else{res.textContent='❌ '+d.msg+' (configure env vars on Render)';res.style.color='var(--a1)';}
+}
+async function checkMortAlerts(){
+  const d=await api('POST','/api/alert/check_mortality');
+  const res=document.getElementById('mort-res');
+  if(d.ok){
+    if(d.alerts_sent.length>0){
+      res.textContent=`⚠ ${d.alerts_sent.length} alerts triggered: `+d.alerts_sent.map(a=>`Batch ${a.batch} (${a.method})`).join(', ');
+      res.style.color='var(--a1)';
+      toast(`${d.alerts_sent.length} mortality alerts sent`,'warn');
+    } else {
+      res.textContent='✅ All batches within tolerance — no alerts triggered';
+      res.style.color='var(--g1)';
+    }
+  } else {
+    res.textContent='Error: '+d.msg;
+    res.style.color='var(--r1)';
+  }
+}
+
+</script>
+</body>
+</html>
+<!-- INJECTED PAGES & SCRIPTS — appended after body -->

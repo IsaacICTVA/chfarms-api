@@ -1,0 +1,9 @@
+flask==3.0.3
+flask-cors==4.0.1
+gunicorn==22.0.0
+reportlab==4.2.2
+gspread==6.1.2
+google-auth==2.32.0
+google-auth-oauthlib==1.2.1
+google-api-python-client==2.139.0
+requests==2.32.3

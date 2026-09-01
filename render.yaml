@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: chfarms-api
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: gunicorn --chdir backend app:app --bind 0.0.0.0:$PORT --workers 2
+    envVars:
+      - key: GOOGLE_SHEET_ID
+        value: 1ajWKs867tssC1DqY-miGiLG61eNZIKoZCpv5x-18LvY
+      - key: FLASK_ENV
+        value: production
