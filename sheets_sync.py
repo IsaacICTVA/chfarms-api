@@ -156,3 +156,4 @@ def read_live_log(sheet_id, tab_name="03_Broiler Live Log"):
         return records, None
     except Exception as e:
         return None, str(e)
+
