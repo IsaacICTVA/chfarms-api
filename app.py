@@ -16,6 +16,16 @@ USERS = {
 }
 SESSIONS = {}
 
+# Permission checks are enforced here as well as in the dashboard UI.  Hiding a
+# menu item is only a convenience; it must never be the access-control layer.
+ROLE_PERMISSIONS = {
+    "admin": {"*"},
+    "counter": {"daily_log", "quotes", "vaccines"},
+    "egg_feed": {"feed_stock", "egg_stock"},
+    "processing": {"processing"},
+    "layer": {"layers", "egg_stock"},
+}
+
 # ── PRICE MASTER ───────────────────────────────────────────────────────────────
 FEED_PRICES = {
     "510": {"name":"Broiler Super Starter", "price":19800, "phase":"Day 1–10"},
@@ -128,6 +138,7 @@ DAILY_LOG = [
 
 QUOTES = []
 OFFLINE_QUEUE = []
+EGG_LOG = []
 
 # ── HELPERS ────────────────────────────────────────────────────────────────────
 def parse_date(s):
@@ -186,6 +197,17 @@ def auth(req):
     t = req.headers.get("Authorization","").replace("Bearer ","")
     return SESSIONS.get(t)
 
+def has_permission(sess, permission):
+    return bool(sess) and ("*" in ROLE_PERMISSIONS.get(sess["role"], set())
+                           or permission in ROLE_PERMISSIONS.get(sess["role"], set()))
+
+def require_permission(sess, permission):
+    if not sess:
+        return jsonify({"ok":False,"msg":"Unauthorized"}), 401
+    if not has_permission(sess, permission):
+        return jsonify({"ok":False,"msg":"Your role is not permitted to perform this action."}), 403
+    return None
+
 def make_qnum():
     today = datetime.date.today()
     return f"CHF-QT-{today.strftime('%d%m%y')}-{len(QUOTES)+1:03d}"
@@ -220,6 +242,7 @@ def dashboard_summary():
     total_mort = sum(v["cumulative_mortality"] for v in stats.values())
     alerts = [v for v in stats.values() if v["alert"]]
     return jsonify({"ok":True,
+        "as_of":datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "total_live_birds":total_live,"total_mortality":total_mort,
         "active_batches":len(stats),"processing_revenue":42544929,"egg_revenue":36103665,
         "layer_birds":9239,"pending_quotes":len([q for q in QUOTES if q["status"]=="PROJECTION QUOTE"]),
@@ -264,7 +287,8 @@ def get_daily_log():
 @app.route("/api/daily_log",methods=["POST"])
 def add_daily_log():
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
+    denied = require_permission(sess, "daily_log")
+    if denied: return denied
     d = request.json or {}
     entry = {
         "date":d.get("date",datetime.date.today().strftime("%d/%m/%Y")),
@@ -309,7 +333,8 @@ def get_feed_stock():
 @app.route("/api/feed_stock",methods=["POST"])
 def update_feed_stock():
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
+    denied = require_permission(sess, "feed_stock")
+    if denied: return denied
     d = request.json or {}
     code = d.get("code")
     bags = int(d.get("bags",0))
@@ -328,11 +353,34 @@ def get_egg_stock():
         "total_harvested":5970,"total_sold":6910,"total_revenue":36103665,
         "last_date":"24/08/2026","layer_birds":9239})
 
+@app.route("/api/egg_stock", methods=["POST"])
+def add_egg_stock():
+    sess = auth(request)
+    denied = require_permission(sess, "egg_stock")
+    if denied: return denied
+    d = request.json or {}
+    entry = {
+        "date": d.get("date", datetime.date.today().strftime("%d/%m/%Y")),
+        "pullet_collected": int(d.get("pullet_collected", 0)),
+        "pullet_sold": int(d.get("pullet_sold", 0)),
+        "pullet_closing": int(d.get("pullet_closing", 0)),
+        "medium_collected": int(d.get("medium_collected", 0)),
+        "medium_sold": int(d.get("medium_sold", 0)),
+        "medium_closing": int(d.get("medium_closing", 0)),
+        "daily_revenue": float(d.get("daily_revenue", 0)),
+        "logged_by": sess["name"],
+    }
+    EGG_LOG.append(entry)
+    OFFLINE_QUEUE.append({"action":"append_row","sheet_tab":"05_Egg_Stock_Log",
+        "data":entry,"ts":datetime.datetime.now().isoformat()})
+    return jsonify({"ok":True,"entry":entry,"queued":len(OFFLINE_QUEUE)})
+
 # ── QUOTE ─────────────────────────────────────────────────────────────────────
 @app.route("/api/quote",methods=["POST"])
 def create_quote():
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
+    denied = require_permission(sess, "quotes")
+    if denied: return denied
     d = request.json or {}
     product    = d.get("product","Broiler Meat")
     qty        = float(d.get("quantity",0))
@@ -368,14 +416,16 @@ def create_quote():
 @app.route("/api/quotes")
 def list_quotes():
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
+    denied = require_permission(sess, "quotes")
+    if denied: return denied
     return jsonify({"ok":True,"quotes":QUOTES})
 
 # ── PDF GENERATION ─────────────────────────────────────────────────────────────
 @app.route("/api/quote/<qnum>/pdf")
 def quote_pdf(qnum):
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
+    denied = require_permission(sess, "quotes")
+    if denied: return denied
     q = next((x for x in QUOTES if x["quote_number"]==qnum),None)
     if not q: return jsonify({"ok":False,"msg":"Quote not found"}),404
     try:
@@ -497,14 +547,14 @@ def sync_status():
     sess = auth(request)
     if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
     return jsonify({"ok":True,"pending_writes":len(OFFLINE_QUEUE),
-        "sheet_id":"1ajWKs867tssC1DqY-miGiLG61eNZIKoZCpv5x-18LvY"})
+        "sheet_configured":bool(os.environ.get("GOOGLE_SHEET_ID"))})
 
 # sync_flush replaced by sync_flush_real below
 
 @app.route("/api/health")
 def health():
     return jsonify({"ok":True,"service":"CH Farms API","version":"2.0.0",
-        "sheet_id":"1ajWKs867tssC1DqY-miGiLG61eNZIKoZCpv5x-18LvY"})
+        "sheet_configured":bool(os.environ.get("GOOGLE_SHEET_ID"))})
 
 # ── ROOT ROUTE — serves dashboard at / so Render URL opens farm system directly
 import base64 as _b64
@@ -513,9 +563,9 @@ _DASHBOARD_B64 = "PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KPGhlYWQ+CjxtZXRhIG
 
 @app.route("/")
 def serve_dashboard():
-    html = _b64.b64decode(_DASHBOARD_B64).decode("utf-8")
-    from flask import Response
-    return Response(html, mimetype="text/html")
+    # Serve the maintained dashboard file.  The previous embedded base64 copy
+    # drifted from index.html, making live dashboard fixes invisible on Render.
+    return send_file("index.html", mimetype="text/html")
 
 @app.route("/dashboard")
 def serve_dashboard_alias():
@@ -526,45 +576,66 @@ if __name__=="__main__":
     port=int(os.environ.get("PORT",5000))
     app.run(host="0.0.0.0",port=port,debug=False)
 
-# ── LIVE SHEET READ ────────────────────────────────────────────────────────────
+# ── GOOGLE SHEETS SYNC ────────────────────────────────────────────────────────
+def _sheets_error(message, status=503):
+    return jsonify({"ok": False, "msg": message, "sheet_available": False}), status
+
+@app.route("/api/sheet/status")
+def sheet_status():
+    """Report Google Sheets state without returning any secret values."""
+    sess = auth(request)
+    denied = require_permission(sess, "sheets")
+    if denied: return denied
+    try:
+        from sheets_sync import get_sheets_service
+        import asyncio
+        return jsonify({"ok": True, **asyncio.run(get_sheets_service().status())})
+    except Exception:
+        return jsonify({"ok": True, "configured": False, "available": False,
+                        "detail": "Google Sheets is not configured."})
+
 @app.route("/api/sheet/read")
+@app.route("/api/sheet/logs")
 def sheet_read():
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
-    sheet_id = os.environ.get("GOOGLE_SHEET_ID","1ajWKs867tssC1DqY-miGiLG61eNZIKoZCpv5x-18LvY")
+    denied = require_permission(sess, "sheets")
+    if denied: return denied
     try:
-        from sheets_sync import read_live_log
-        records, err = read_live_log(sheet_id)
-        if err:
-            return jsonify({"ok":False,"msg":err,"sheet_available":False})
+        from sheets_sync import DEFAULT_BROILER_TAB, get_sheets_service
+        import asyncio
+        tab = request.args.get("tab", DEFAULT_BROILER_TAB)
+        raw_limit = request.args.get("limit")
+        limit = int(raw_limit) if raw_limit else None
+        records = asyncio.run(get_sheets_service().read_records(tab, limit))
         return jsonify({"ok":True,"records":records,"count":len(records)})
-    except ImportError:
-        return jsonify({"ok":False,"msg":"sheets_sync module not loaded","sheet_available":False})
+    except ValueError as exc:
+        return jsonify({"ok":False,"msg":str(exc)}),400
+    except Exception:
+        return _sheets_error("Unable to read Google Sheets live logs.")
 
 # ── REAL SYNC FLUSH WITH SHEETS API ───────────────────────────────────────────
 @app.route("/api/sync/flush", methods=["POST"])
 def sync_flush_real():
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
-    if sess["role"] != "admin": return jsonify({"ok":False,"msg":"Admin only"}),403
+    denied = require_permission(sess, "sheets")
+    if denied: return denied
 
-    sheet_id = os.environ.get("GOOGLE_SHEET_ID","1ajWKs867tssC1DqY-miGiLG61eNZIKoZCpv5x-18LvY")
-    n = len(OFFLINE_QUEUE)
-
-    # Try live Sheets write-back
+    queue_snapshot = list(OFFLINE_QUEUE)
     try:
-        from sheets_sync import flush_queue
-        flushed, errors = flush_queue(list(OFFLINE_QUEUE), sheet_id)
-        OFFLINE_QUEUE.clear()
+        from sheets_sync import get_sheets_service
+        import asyncio
+        result = asyncio.run(get_sheets_service().flush(queue_snapshot))
+        failed = set(result.failed_indexes)
+        # Failed entries remain queued so a later retry cannot lose farm records.
+        OFFLINE_QUEUE[:] = [item for index, item in enumerate(queue_snapshot) if index in failed]
         return jsonify({
-            "ok":True,"flushed":flushed,"errors":errors,
-            "msg":f"{flushed} of {n} writes sent to Google Sheet",
+            "ok":not result.errors,"flushed":result.flushed,"errors":list(result.errors),
+            "remaining":len(OFFLINE_QUEUE),
+            "msg":f"{result.flushed} writes sent to Google Sheet",
             "sheet_write_attempted":True,
         })
-    except ImportError:
-        # Fallback: just clear queue (no live sheet)
-        OFFLINE_QUEUE.clear()
-        return jsonify({"ok":True,"flushed":n,"errors":[],"msg":f"{n} writes flushed (offline mode)","sheet_write_attempted":False})
+    except Exception:
+        return _sheets_error("Unable to flush Google Sheets queue; queued data was retained.")
 
 # ── EMAIL ALERT (free via SMTP Gmail) ─────────────────────────────────────────
 def send_email_alert(subject, body, to_email):
@@ -590,7 +661,8 @@ def send_email_alert(subject, body, to_email):
 @app.route("/api/alert/email", methods=["POST"])
 def alert_email():
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
+    denied = require_permission(sess, "alerts")
+    if denied: return denied
     d = request.json or {}
     subject = d.get("subject","C&H Farms Alert")
     body    = d.get("body","")
@@ -603,7 +675,8 @@ def alert_email():
 @app.route("/api/alert/whatsapp", methods=["POST"])
 def alert_whatsapp():
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
+    denied = require_permission(sess, "alerts")
+    if denied: return denied
     d = request.json or {}
     message = d.get("message","")
     phone   = d.get("phone", os.environ.get("WHATSAPP_PHONE",""))
@@ -646,7 +719,8 @@ def alert_whatsapp():
 def check_mortality_alert():
     """Auto-send alert if any batch exceeds 5% mortality or is overdue."""
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
+    denied = require_permission(sess, "alerts")
+    if denied: return denied
     stats = batch_stats()
     alerts_sent = []
     for bk, bv in stats.items():
@@ -679,9 +753,8 @@ def get_processing():
 @app.route("/api/processing", methods=["POST"])
 def add_processing():
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
-    if sess["role"] not in ("admin","processing"):
-        return jsonify({"ok":False,"msg":"Processing role required"}),403
+    denied = require_permission(sess, "processing")
+    if denied: return denied
     d = request.json or {}
     event = {"batch":d.get("batch"),"date":d.get("date"),"birds":int(d.get("birds",0)),
              "weight_kg":float(d.get("weight_kg",0)),"price_per_kg":float(d.get("price_per_kg",0)),
@@ -716,7 +789,8 @@ def get_vaccines():
 @app.route("/api/vaccines", methods=["POST"])
 def log_vaccine():
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
+    denied = require_permission(sess, "vaccines")
+    if denied: return denied
     d = request.json or {}
     entry = {**d,"logged_by":sess["name"],"ts":datetime.datetime.now().isoformat()}
     VACCINE_LOG.append(entry)
@@ -761,7 +835,8 @@ def get_layers():
 @app.route("/api/layers", methods=["POST"])
 def add_layer_log():
     sess = auth(request)
-    if not sess: return jsonify({"ok":False,"msg":"Unauthorized"}),401
+    denied = require_permission(sess, "layers")
+    if denied: return denied
     d = request.json or {}
     # Get last closing as new opening
     if LAYER_LOG:
