@@ -382,7 +382,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <span class="chip warn" id="chip-pending" style="display:none"></span>
       <span class="chip ok" id="chip-live">● Live</span>
     </div>
-    <button class="tb-btn" id="sync-btn" onclick="flushSync()">↑ Sync</button>
+    <button class="tb-btn" id="sync-btn" data-roles="admin" onclick="flushSync()">↑ Sync</button>
     <button class="tb-btn" onclick="nav('guide',null);document.getElementById('wt-overlay').classList.remove('hidden')">? Guide</button>
     <button class="tb-btn" onclick="doLogout()">Sign out</button>
   </div>
@@ -390,27 +390,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div class="shell">
     <nav class="sb">
       <div class="sb-sec">Overview</div>
-      <div class="sb-item on" onclick="nav('dashboard',this)"><span class="sb-ico">📊</span>Dashboard</div>
+      <div class="sb-item on" data-roles="admin,counter,egg_feed,processing,layer" onclick="nav('dashboard',this)"><span class="sb-ico">📊</span>Live Dashboard</div>
 
       <div class="sb-sec">Broilers</div>
-      <div class="sb-item" onclick="nav('batches',this)"><span class="sb-ico">🐔</span>Live Batches<span class="sb-pill pill-r" id="sb-alert" style="display:none">!</span></div>
-      <div class="sb-item" onclick="nav('log-entry',this)"><span class="sb-ico">📝</span>Daily Log Entry</div>
-      <div class="sb-item" onclick="nav('feed',this)"><span class="sb-ico">🌾</span>Feed Stock</div>
+      <div class="sb-item" data-roles="admin,counter,egg_feed,processing,layer" onclick="nav('batches',this)"><span class="sb-ico">🐔</span>Live Batches<span class="sb-pill pill-r" id="sb-alert" style="display:none">!</span></div>
+      <div class="sb-item" data-roles="admin,counter" onclick="nav('log-entry',this)"><span class="sb-ico">📝</span>Daily Log Entry</div>
+      <div class="sb-item" data-roles="admin,egg_feed" onclick="nav('feed',this)"><span class="sb-ico">🌾</span>Feed Stock</div>
 
       <div class="sb-sec">Sales</div>
-      <div class="sb-item" onclick="nav('quote',this)"><span class="sb-ico">🧾</span>Buyer Quotes</div>
-      <div class="sb-item" onclick="nav('orders',this)"><span class="sb-ico">📦</span>Order Register</div>
+      <div class="sb-item" data-roles="admin,counter" onclick="nav('quote',this)"><span class="sb-ico">🧾</span>Buyer Quotes</div>
+      <div class="sb-item" data-roles="admin,counter" onclick="nav('orders',this)"><span class="sb-ico">📦</span>Order Register</div>
 
       <div class="sb-sec">Layers</div>
-      <div class="sb-item" onclick="nav('eggs',this)"><span class="sb-ico">🥚</span>Egg Stock</div>
+      <div class="sb-item" data-roles="admin,egg_feed,layer" onclick="nav('eggs',this)"><span class="sb-ico">🥚</span>Egg Stock</div>
 
       <div class="sb-sec">Farm Records</div>
-      <div class="sb-item" onclick="nav('vaccines',this);loadVaccines()"><span class="sb-ico">💉</span>Vaccine Log</div>
-      <div class="sb-item" onclick="nav('processing',this);loadProcEst()"><span class="sb-ico">🔪</span>Processing Log</div>
-      <div class="sb-item" onclick="nav('alerts',this)"><span class="sb-ico">🔔</span>Alerts & Notif.</div>
+      <div class="sb-item" data-roles="admin,counter" onclick="nav('vaccines',this);loadVaccines()"><span class="sb-ico">💉</span>Vaccine Log</div>
+      <div class="sb-item" data-roles="admin,processing" onclick="nav('processing',this);loadProcEst()"><span class="sb-ico">🔪</span>Processing Log</div>
+      <div class="sb-item" data-roles="admin" onclick="nav('alerts',this)"><span class="sb-ico">🔔</span>Alerts & Notif.</div>
       <hr class="sb-div">
-      <div class="sb-item" onclick="nav('deploy',this)"><span class="sb-ico">🚀</span>Deploy / Settings</div>
-      <div class="sb-item" onclick="nav('guide',this);document.getElementById('wt-overlay').classList.remove('hidden')"><span class="sb-ico">📋</span>Walkthrough Guide</div>
+      <div class="sb-item" data-roles="admin" onclick="nav('deploy',this)"><span class="sb-ico">🚀</span>Deploy / Settings</div>
+      <div class="sb-item" data-roles="admin,counter,egg_feed,processing,layer" onclick="nav('guide',this);document.getElementById('wt-overlay').classList.remove('hidden')"><span class="sb-ico">📋</span>Walkthrough Guide</div>
     </nav>
 
     <main class="main">
@@ -675,7 +675,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
             <b>Step 4.</b> Build: <code>pip install -r requirements.txt</code> · Start: <code>gunicorn app:app</code><br>
             <b>Step 5.</b> Add env var: <code>GOOGLE_SHEET_ID = 1ajWKs867tssC1DqY-miGiLG61eNZIKoZCpv5x-18LvY</code><br>
             <b>Step 6.</b> Copy Render URL → paste above → test connection ✅<br><br>
-            <b>Google Sheet sync:</b> Create Google Cloud Service Account → download JSON → share sheet with service account email as Editor → paste JSON as <code>GOOGLE_CREDENTIALS</code> env var on Render.
+            <b>Google Sheet sync:</b> Create a new Google Cloud service-account key → share the Sheet with its service-account email as Editor → add the complete JSON as the Render secret <code>GOOGLE_CREDENTIALS_JSON</code>.
           </div>
         </div>
         <div class="card">
@@ -828,7 +828,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 // ═══════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════
-let API_URL  = localStorage.getItem('ch_api') || 'http://localhost:5000';
+const DEFAULT_API_URL = location.protocol.startsWith('http') ? location.origin : 'http://localhost:5000';
+let API_URL  = localStorage.getItem('ch_api') || DEFAULT_API_URL;
 let TOKEN    = localStorage.getItem('ch_tok')  || null;
 let ROLE     = localStorage.getItem('ch_role') || null;
 let UNAME    = localStorage.getItem('ch_name') || null;
@@ -924,12 +925,7 @@ async function doLogin() {
     localStorage.setItem('ch_name',UNAME);
     bootApp();
   } else if (d.offline) {
-    const pins={iyanu:'1234',john:'2001',taiwo:'3001',nana:'4001',sunday:'5001'};
-    if (pins[SELUSER]===pin) {
-      TOKEN='offline'; ROLE='admin'; UNAME=SELUSER;
-      document.getElementById('loff').style.display='block';
-      bootApp();
-    } else { err.textContent='Wrong PIN'; }
+    err.textContent='Cannot reach the farm server. Check the API connection and try again.';
   } else {
     err.textContent = d.msg || 'Login failed';
   }
@@ -939,12 +935,13 @@ function bootApp() {
   const app=document.getElementById('app'); app.className='on';
   document.getElementById('chip-user').textContent=UNAME;
   document.getElementById('chip-role').textContent=ROLE;
+  applyRoleUI();
   // set today in forms
   const td=new Date(), dd=String(td.getDate()).padStart(2,'0'),
         mm=String(td.getMonth()+1).padStart(2,'0'), yy=td.getFullYear();
   const dstr=`${dd}/${mm}/${yy}`;
-  ['dl-date','eg-dt','fd-date'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=dstr;});
-  document.getElementById('api-inp').value=API_URL!=='http://localhost:5000'?API_URL:'';
+  ['dl-date','eg-dt','fd-date','vx-dt','pr-dt','ly-dt'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=dstr;});
+  document.getElementById('api-inp').value=API_URL!==DEFAULT_API_URL?API_URL:'';
   loadDash();
 }
 function doLogout() {
@@ -957,6 +954,7 @@ function doLogout() {
 // NAV
 // ═══════════════════════════════════════
 function nav(id, el) {
+  if (el && el.dataset.roles && !el.dataset.roles.split(',').includes(ROLE)) return;
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('on'));
   const pg=document.getElementById('pg-'+id);
@@ -968,6 +966,20 @@ function nav(id, el) {
   if(id==='orders')  renderOrders();
 }
 
+function applyRoleUI() {
+  document.querySelectorAll('[data-roles]').forEach(el => {
+    el.style.display = el.dataset.roles.split(',').includes(ROLE) ? '' : 'none';
+  });
+  document.querySelectorAll('.sb-sec').forEach(section => {
+    let item = section.nextElementSibling, visible = false;
+    while (item && !item.classList.contains('sb-sec')) {
+      if (item.classList.contains('sb-item') && item.style.display !== 'none') visible = true;
+      item = item.nextElementSibling;
+    }
+    section.style.display = visible ? '' : 'none';
+  });
+}
+
 // ═══════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════
@@ -975,8 +987,9 @@ async function loadDash() {
   const d = await api('GET','/api/dashboard/summary');
   if (!d.ok) { toast('Server unreachable — offline mode','warn'); return; }
 
+  const refreshedAt = d.as_of ? new Date(d.as_of) : new Date();
   document.getElementById('dash-sub').textContent =
-    `${new Date().toLocaleDateString('en-GB')} · FRP · Live count: ${d.total_live_birds?.toLocaleString()} birds`;
+    `Live board · ${refreshedAt.toLocaleDateString('en-GB')} ${refreshedAt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})} · Live count: ${d.total_live_birds?.toLocaleString()} birds`;
   document.getElementById('kv-live').textContent  = (d.total_live_birds||0).toLocaleString();
   document.getElementById('kv-od').textContent    = (d.alerts||[]).length;
   const s = d.batch_stats||{};
@@ -1263,7 +1276,22 @@ function calcEgg(){
   const rev=ps*3800+ms*5100;
   document.getElementById('eg-rev').value=rev?'₦'+rev.toLocaleString():'';
 }
-function saveEgg(){ toast('Egg log saved — queued for sync','ok'); PENDING++; updateSync(); }
+async function saveEgg(){
+  const payload={
+    date:document.getElementById('eg-dt').value,
+    pullet_collected:+document.getElementById('eg-pc').value||0,
+    pullet_sold:+document.getElementById('eg-ps').value||0,
+    pullet_closing:+document.getElementById('eg-pcl').value||0,
+    medium_collected:+document.getElementById('eg-mc').value||0,
+    medium_sold:+document.getElementById('eg-ms').value||0,
+    medium_closing:+document.getElementById('eg-mcl').value||0,
+    daily_revenue:(+document.getElementById('eg-ps').value||0)*3800+(+document.getElementById('eg-ms').value||0)*5100,
+  };
+  if(!payload.date){toast('Enter the collection date','err');return;}
+  const d=await api('POST','/api/egg_stock',payload);
+  if(d.ok){PENDING=d.queued||PENDING+1;updateSync();toast('Egg stock saved and queued for Sheets sync','ok');}
+  else toast(d.msg||'Egg stock could not be saved','err');
+}
 
 // ═══════════════════════════════════════
 // SYNC
