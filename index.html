@@ -817,6 +817,55 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           </div>
         </div>
       </div>
+<!-- ── LAYER BIRDS ── -->
+      <div id="pg-layers" class="pg">
+        <div class="pg-head">
+          <div class="pg-title">Layer Birds — Count &amp; Mortality</div>
+          <div class="pg-sub">Counter: Sunday · Opening flock 9,239 · Daily log writes to Sheet</div>
+        </div>
+        <div class="krow" id="layer-kpis">
+          <div class="kpi"><div class="kl">Opening flock</div><div class="kv">9,239</div></div>
+          <div class="kpi"><div class="kl">Current live birds</div><div class="kv up" id="lk-live">—</div></div>
+          <div class="kpi"><div class="kl">Cumulative mortality</div><div class="kv" id="lk-mort">—</div></div>
+          <div class="kpi"><div class="kl">Mortality %</div><div class="kv" id="lk-pct">—</div></div>
+          <div class="kpi"><div class="kl">Pullet egg price</div><div class="kv">₦3,800</div><div class="kd">per crate</div></div>
+          <div class="kpi"><div class="kl">Medium egg price</div><div class="kv">₦5,100</div><div class="kd">per crate</div></div>
+        </div>
+        <div class="g2">
+          <div class="card">
+            <div class="ch"><div class="ct">Log today's layer count</div><span class="bdg bg">Sunday</span></div>
+            <div class="cb">
+              <div class="fgrid">
+                <div class="fg"><label>Date (DD/MM/YYYY)</label><input id="ly-date" placeholder="25/08/2026"></div>
+                <div class="fg"><label>Opening birds (auto from last entry)</label><input id="ly-open" readonly style="background:var(--g5);font-weight:600;color:var(--g1)"></div>
+                <div class="fg"><label>Mortality today</label><input id="ly-mort" type="number" min="0" placeholder="0" oninput="calcLayerClose()"></div>
+                <div class="fg"><label>Closing count (auto)</label><input id="ly-close" readonly style="background:var(--g5);font-weight:600;color:var(--g1)"></div>
+                <div class="fg"><label>Notes</label><input id="ly-notes" placeholder="e.g. 2 found dead — pen 3"></div>
+              </div>
+              <div class="brow">
+                <button class="btn btn-g" onclick="saveLayerLog()">Save layer count ↗</button>
+                <button class="btn" onclick="clearLayer()">Clear</button>
+              </div>
+              <div id="ly-res" style="display:none;margin-top:10px"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ch"><div class="ct">Layer mortality trend</div></div>
+            <div class="cb">
+              <div id="layer-trend" style="font-size:13px;color:var(--c2);text-align:center;padding:20px">Loading…</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">Recent layer log (last 10 entries)</div></div>
+          <div class="tw">
+            <table class="tbl">
+              <thead><tr><th>Date</th><th>Opening</th><th>Mortality</th><th>Closing</th><th>Counter</th><th>Notes</th></tr></thead>
+              <tbody id="layer-log-body"><tr><td colspan="6" class="lc">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
     </main>
   </div>
@@ -1028,6 +1077,114 @@ async function loadDash() {
   });
 }
 
+  
+// ═══════════════════════════════════════
+// LAYER BIRDS
+// ═══════════════════════════════════════
+let LAYER_OPENING = 9239;
+
+async function loadLayers(){
+  const d = await api('GET','/api/layers');
+  // Always render something — use fallback if offline
+  const live    = d.ok ? d.current_live    : LAYER_OPENING;
+  const mort    = d.ok ? d.cumulative_mortality : 0;
+  const pct     = d.ok ? d.mortality_pct   : 0;
+  const log     = d.ok ? (d.log||[])        : [];
+
+  document.getElementById('lk-live').textContent = live.toLocaleString();
+  document.getElementById('lk-mort').textContent = mort;
+  document.getElementById('lk-pct').textContent  = pct+'%';
+
+  // Set opening for new entry form
+  LAYER_OPENING = live;
+  const openEl = document.getElementById('ly-open');
+  if(openEl) openEl.value = live.toLocaleString();
+
+  // Trend mini chart
+  const trend = document.getElementById('layer-trend');
+  if(log.length){
+    trend.innerHTML = log.slice(-7).map(r=>`
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid var(--c3);font-size:12.5px">
+        <span style="color:var(--c2)">${r.date}</span>
+        <span class="${r.layer_mortality>5?'dn':r.layer_mortality>2?'warn':''}">${r.layer_mortality > 0 ? '↓'+r.layer_mortality+' mort' : '✓ No mortality'}</span>
+        <span style="font-weight:600">${r.layer_closing?.toLocaleString()} live</span>
+      </div>`).join('');
+  } else {
+    trend.innerHTML = '<div style="color:var(--c2);font-size:12px">No trend data yet — start logging daily counts</div>';
+  }
+
+  // Log table
+  const tbody = document.getElementById('layer-log-body');
+  if(!log.length){
+    tbody.innerHTML='<tr><td colspan="6" style="padding:14px;text-align:center;color:var(--c2)">No records yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = [...log].reverse().map(r=>`<tr>
+    <td>${r.date}</td>
+    <td>${r.layer_opening?.toLocaleString()}</td>
+    <td class="${r.layer_mortality>5?'dn':r.layer_mortality>2?'warn':''}">${r.layer_mortality}</td>
+    <td><strong>${r.layer_closing?.toLocaleString()}</strong></td>
+    <td>${r.counter||'—'}</td>
+    <td style="font-size:11px;color:var(--c2)">${r.notes||'—'}</td>
+  </tr>`).join('');
+}
+
+function calcLayerClose(){
+  const open = LAYER_OPENING;
+  const mort = parseInt(document.getElementById('ly-mort').value)||0;
+  const closeEl = document.getElementById('ly-close');
+  if(closeEl) closeEl.value = (open - mort).toLocaleString();
+}
+
+async function saveLayerLog(){
+  const date  = document.getElementById('ly-date').value.trim();
+  const mort  = parseInt(document.getElementById('ly-mort').value)||0;
+  const notes = document.getElementById('ly-notes').value.trim();
+  if(!date){ toast('Enter date first','err'); return; }
+
+  const d = await api('POST','/api/layers',{date, layer_mortality:mort, notes});
+  const res = document.getElementById('ly-res');
+  res.style.display='block';
+
+  let closing, live;
+  if(d.ok){
+    closing = d.entry.layer_closing;
+    live    = d.current_live;
+    LAYER_OPENING = live;
+    PENDING = d.queued||PENDING+1;
+    updateSync();
+    res.className='al al-g';
+    res.innerHTML=`✅ Saved — ${date} · ${mort} mortality · ${closing.toLocaleString()} birds closing · Queued for Sheet sync`;
+    document.getElementById('lk-live').textContent = live.toLocaleString();
+    document.getElementById('lk-mort').textContent = parseInt(document.getElementById('lk-mort').textContent||'0') + mort;
+    document.getElementById('ly-open').value = live.toLocaleString();
+    document.getElementById('ly-mort').value = '';
+    document.getElementById('ly-close').value = '';
+    document.getElementById('ly-notes').value = '';
+    LOG_SESS.unshift({date,batch:'Layers',mort,feed:0,by:UNAME,status:d.offline?'Queued':'Saved'});
+    toast('Layer count saved ✅','ok');
+    loadLayers();
+  } else {
+    // Offline save — queue locally
+    closing = LAYER_OPENING - mort;
+    LAYER_OPENING = closing;
+    PENDING++;
+    updateSync();
+    res.className='al al-a';
+    res.innerHTML=`📶 Offline — ${date} · ${mort} mortality · ${closing.toLocaleString()} birds closing · Queued for next sync`;
+    document.getElementById('lk-live').textContent = closing.toLocaleString();
+    document.getElementById('ly-open').value = closing.toLocaleString();
+    document.getElementById('ly-mort').value = '';
+    document.getElementById('ly-close').value = '';
+    toast('Queued offline ✅','ok');
+  }
+}
+
+function clearLayer(){
+  ['ly-mort','ly-notes'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const cl=document.getElementById('ly-close'); if(cl)cl.value='';
+  const res=document.getElementById('ly-res'); if(res)res.style.display='none';
+}
 // ═══════════════════════════════════════
 // BATCHES
 // ═══════════════════════════════════════
