@@ -1,4 +1,4 @@
-# C&H Farms — Live System Deployment Guide
+C&H Farms — Live System Deployment Guide
 
 ## What's in this package
 - `app.py` — Python Flask API
@@ -67,6 +67,12 @@ The current `OFFLINE_QUEUE` is in memory, so the deployment intentionally uses o
 | Sunday | 5001 | Layer Counter |
 
 ## Google Sheet tabs used
+- `03_Broiler Live Log` — daily mortality + feed log
+- `07_Customer_Order_Quote` — buyer quotes written back automatically
+- `05_Egg_Stock_Log` — egg daily harvest
+- `04_Vaccine_Drug_Log` — vaccine administration
+- `02_Processing Log` — processing sessions
+
 - `03_Broiler Live Log` — daily mortality + feed log
 - `07_Customer_Order_Quote` — buyer quotes written back automatically
 - `05_Egg_Stock_Log` — egg daily harvest
