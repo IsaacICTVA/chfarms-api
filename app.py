@@ -929,57 +929,135 @@ def q3_doc_arrivals():
     if denied:
         return denied
 
+    # -----------------------------
+    # GET: list Batch Arrivals
+    # -----------------------------
     if request.method == "GET":
         try:
-    record = BatchArrival(
-        batch_code=str(d["batch_code"]).strip().lower(),
-        arrival_date=q3_date(d["arrival_date"]),
-        supplier=str(d["supplier"]).strip(),
-        doc_count=int(d["doc_count"]),
-        unit_cost=float(d["unit_cost"]),
-        feed_type=str(d["feed_type"]).strip(),
-        house=d.get("house"),
-        created_by=sess["name"]
-    )
+            rows = (
+                BatchArrival.query
+                .order_by(BatchArrival.arrival_date.desc())
+                .all()
+            )
 
-    if record.doc_count <= 0 or record.unit_cost < 0:
-        raise ValueError(
-            "DOC count must be positive and unit cost cannot be negative"
+            return jsonify({
+                "ok": True,
+                "arrivals": [
+                    {
+                        "id": r.id,
+                        "batch_code": r.batch_code,
+                        "arrival_date": (
+                            r.arrival_date.isoformat()
+                            if r.arrival_date
+                            else None
+                        ),
+                        "supplier": r.supplier,
+                        "doc_count": r.doc_count,
+                        "unit_cost": float(r.unit_cost),
+                        "feed_type": r.feed_type,
+                        "house": r.house,
+                        "status": r.status
+                    }
+                    for r in rows
+                ]
+            })
+
+        except SQLAlchemyError:
+            app.logger.exception(
+                "Q3 Batch Arrival read database error"
+            )
+
+            return jsonify({
+                "ok": False,
+                "error": "database_error",
+                "msg": "Batch Arrivals could not be loaded."
+            }), 500
+
+    # -----------------------------
+    # POST: create Batch Arrival
+    # -----------------------------
+    d = request.json or {}
+
+    try:
+        record = BatchArrival(
+            batch_code=str(
+                d["batch_code"]
+            ).strip().lower(),
+
+            arrival_date=q3_date(
+                d["arrival_date"]
+            ),
+
+            supplier=str(
+                d["supplier"]
+            ).strip(),
+
+            doc_count=int(
+                d["doc_count"]
+            ),
+
+            unit_cost=float(
+                d["unit_cost"]
+            ),
+
+            feed_type=str(
+                d["feed_type"]
+            ).strip(),
+
+            house=d.get("house"),
+
+            created_by=sess["name"]
         )
 
-    db.session.add(record)
+        if record.doc_count <= 0:
+            raise ValueError(
+                "DOC count must be positive"
+            )
 
-    q3_audit(
-        "create",
-        record,
-        sess["name"],
-        d.get("reason", "New DOC arrival")
-    )
+        if record.unit_cost < 0:
+            raise ValueError(
+                "Unit cost cannot be negative"
+            )
 
-    db.session.commit()
+        db.session.add(record)
 
-    return jsonify({
-        "ok": True,
-        "id": record.id
-    }), 201
+        q3_audit(
+            "create",
+            record,
+            sess["name"],
+            d.get(
+                "reason",
+                "New DOC arrival"
+            )
+        )
 
-except (KeyError, TypeError, ValueError) as exc:
-    db.session.rollback()
-    return jsonify({
-        "ok": False,
-        "msg": str(exc)
-    }), 400
+        db.session.commit()
 
-except SQLAlchemyError:
-    db.session.rollback()
-    app.logger.exception(
-        "Q3 Batch Arrival database error"
-    )
-    return jsonify({
-        "ok": False,
-        "error": "database_error",
-        "msg": "Batch Arrival could not be saved."
-    }), 500
+        return jsonify({
+            "ok": True,
+            "id": record.id
+        }), 201
+
+    except (KeyError, TypeError, ValueError) as exc:
+        db.session.rollback()
+
+        return jsonify({
+            "ok": False,
+            "msg": str(exc)
+        }), 400
+
+    except SQLAlchemyError:
+        db.session.rollback()
+
+        app.logger.exception(
+            "Q3 Batch Arrival database error"
+        )
+
+        return jsonify({
+            "ok": False,
+            "error": "database_error",
+            "msg": "Batch Arrival could not be saved."
+        }), 500
 @app.route("/api/q3/feed-records", methods=["GET", "POST"])
 def q3_feed_records():
     sess = auth(request)
