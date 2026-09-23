@@ -4,7 +4,6 @@ from flask_cors import CORS
 import json, os, datetime, hashlib, uuid, io
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from sqlalchemy.exc import SQLAlchemyError
 app = Flask(__name__)
 CORS(app, origins="*")
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -306,7 +305,6 @@ def get_daily_log():
             "mort_pct":round(running[r["batch"]]["mort"]/opening*100,2) if opening else 0,
         })
     return jsonify({"ok":True,"log":enriched})
-
 @app.route("/api/daily_log",methods=["POST"])
 def add_daily_log():
     sess = auth(request)
@@ -1058,6 +1056,7 @@ def q3_doc_arrivals():
             "error": "database_error",
             "msg": "Batch Arrival could not be saved."
         }), 500
+
 @app.route("/api/q3/feed-records", methods=["GET", "POST"])
 def q3_feed_records():
     sess = auth(request)
@@ -1344,7 +1343,9 @@ def q3_processing_session():
             "error": "database_error",
             "msg": "Processing Session could not be saved.",
         }), 500
-    @app.route("/api/q3/audit-log", methods=["GET"])
+
+    
+@app.route("/api/q3/audit-log", methods=["GET"])
 def q3_audit_log():
 
 db.session.commit()
