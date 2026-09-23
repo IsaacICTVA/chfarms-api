@@ -1061,53 +1061,291 @@ def q3_doc_arrivals():
 @app.route("/api/q3/feed-records", methods=["GET", "POST"])
 def q3_feed_records():
     sess = auth(request)
+
     denied = q3_denied(sess, "feed_stock")
-    if denied: return denied
+    if denied:
+        return denied
+
     if request.method == "GET":
-        rows = FeedRecord.query.order_by(FeedRecord.record_date.desc()).all()
-        supply = sum(float(r.quantity_bags) for r in rows if r.movement_type == "supply")
-        used = sum(float(r.quantity_bags) for r in rows if r.movement_type == "usage")
-        return jsonify({"ok":True,"supply_bags":supply,"usage_bags":used,"closing_bags":supply-used,"records":[{"id":r.id,"date":r.record_date.isoformat(),"type":r.movement_type,"feed_type":r.feed_type,"bags":float(r.quantity_bags),"batch":r.batch_code,"house":r.house,"supplier":r.supplier,"unit_cost":float(r.unit_cost or 0),"reference":r.reference} for r in rows]})
-    d = request.json or {}
+        try:
+            rows = (
+                FeedRecord.query
+                .order_by(FeedRecord.record_date.desc())
+                .all()
+            )
+
+            supply = sum(
+                float(r.quantity_bags)
+                for r in rows
+                if r.movement_type == "supply"
+            )
+
+            used = sum(
+                float(r.quantity_bags)
+                for r in rows
+                if r.movement_type == "usage"
+            )
+
+            return jsonify({
+                "ok": True,
+                "supply_bags": supply,
+                "usage_bags": used,
+                "closing_bags": supply - used,
+                "records": [
+                    {
+                        "id": r.id,
+                        "date": (
+                            r.record_date.isoformat()
+                            if r.record_date
+                            else None
+                        ),
+                        "type": r.movement_type,
+                        "feed_type": r.feed_type,
+                        "bags": float(r.quantity_bags),
+                        "batch": r.batch_code,
+                        "house": r.house,
+                        "supplier": r.supplier,
+                        "unit_cost": float(r.unit_cost or 0),
+                        "reference": r.reference,
+                    }
+                    for r in rows
+                ],
+            })
+
+        except SQLAlchemyError:
+            app.logger.exception(
+                "Q3 Feed Record read database error"
+            )
+
+            return jsonify({
+                "ok": False,
+                "error": "database_error",
+                "msg": "Feed Records could not be loaded.",
+            }), 500
+
+    d = request.get_json(silent=True) or {}
+
     try:
         movement = d.get("movement_type")
-        if movement not in {"supply", "usage"}: raise ValueError("movement_type must be supply or usage")
-        record = FeedRecord(record_date=q3_date(d["record_date"]), movement_type=movement, feed_type=str(d["feed_type"]).strip(), quantity_bags=float(d["quantity_bags"]), batch_code=d.get("batch_code"), house=d.get("house"), supplier=d.get("supplier"), unit_cost=d.get("unit_cost"), reference=d.get("reference"), notes=d.get("notes"), created_by=sess["name"])
-        if record.quantity_bags <= 0: raise ValueError("quantity_bags must be positive")
-        db.session.add(record); q3_audit("create", record, sess["name"], d.get("reason", "Feed record")); db.session.commit()
-        return jsonify({"ok":True,"id":record.id}), 201
-        except SQLAlchemyError:
-    db.session.rollback()
-    app.logger.exception(
-        "Q3 Feed Record database error"
-    )
-    return jsonify({
-        "ok": False,
-        "error": "database_error",
-        "msg": "Feed Record could not be saved."
-    }), 500
+
+        if movement not in {"supply", "usage"}:
+            raise ValueError(
+                "movement_type must be supply or usage"
+            )
+
+        record = FeedRecord(
+            record_date=q3_date(d["record_date"]),
+            movement_type=movement,
+            feed_type=str(d["feed_type"]).strip(),
+            quantity_bags=float(d["quantity_bags"]),
+            batch_code=d.get("batch_code"),
+            house=d.get("house"),
+            supplier=d.get("supplier"),
+            unit_cost=d.get("unit_cost"),
+            reference=d.get("reference"),
+            notes=d.get("notes"),
+            created_by=sess["name"],
+        )
+
+        if record.quantity_bags <= 0:
+            raise ValueError(
+                "quantity_bags must be positive"
+            )
+
+        db.session.add(record)
+
+        q3_audit(
+            "create",
+            record,
+            sess["name"],
+            d.get("reason", "Feed record"),
+        )
+
+        db.session.commit()
+
+        return jsonify({
+            "ok": True,
+            "id": record.id,
+        }), 201
+
+    except (KeyError, TypeError, ValueError) as exc:
+        db.session.rollback()
+
+        return jsonify({
+            "ok": False,
+            "error": "validation_error",
+            "msg": str(exc),
+        }), 400
+
+    except SQLAlchemyError:
+        db.session.rollback()
+
+        app.logger.exception(
+            "Q3 Feed Record database error"
+        )
+
+        return jsonify({
+            "ok": False,
+            "error": "database_error",
+            "msg": "Feed Record could not be saved.",
+        }), 500
+
+
 @app.route("/api/q3/processing-sessions", methods=["POST"])
 def q3_processing_session():
     sess = auth(request)
+
     denied = q3_denied(sess, "processing")
-    if denied: return denied
-    d = request.json or {}
+    if denied:
+        return denied
+
+    d = request.get_json(silent=True) or {}
+
     try:
-        session = ProcessingSession(processing_date=q3_date(d["processing_date"]), source_batch=str(d["source_batch"]), birds_received=int(d["birds_received"]), birds_processed=int(d["birds_processed"]), birds_rejected=int(d.get("birds_rejected",0)), live_weight_kg=float(d.get("live_weight_kg",0)), labor_cost=float(d.get("labor_cost",0)), transport_cost=float(d.get("transport_cost",0)), utilities_cost=float(d.get("utilities_cost",0)), packaging_cost=float(d.get("packaging_cost",0)), inspection_cost=float(d.get("inspection_cost",0)), other_cost=float(d.get("other_cost",0)), created_by=sess["name"])
-        if session.birds_processed + session.birds_rejected > session.birds_received: raise ValueError("processed and rejected birds cannot exceed birds received")
-        for item in d.get("items", []):
-            product, category = str(item["product"]).strip(), str(item["category"]).strip()
-            if category not in {"whole", "part", "evisceral"}: raise ValueError("item category must be whole, part, or evisceral")
-            session.items.append(ProcessingItem(product=product, category=category, weight_kg=float(item["weight_kg"]), pack_count=float(item.get("pack_count",0)), unit=item.get("unit","kg"), selling_rate=float(item["selling_rate"])))
-        if not session.items: raise ValueError("at least one whole, part, or evisceral item is required")
-db.session.add(session)
+        session = ProcessingSession(
+            processing_date=q3_date(
+                d["processing_date"]
+            ),
+            source_batch=str(
+                d["source_batch"]
+            ).strip(),
+            birds_received=int(
+                d["birds_received"]
+            ),
+            birds_processed=int(
+                d["birds_processed"]
+            ),
+            birds_rejected=int(
+                d.get("birds_rejected", 0)
+            ),
+            live_weight_kg=float(
+                d.get("live_weight_kg", 0)
+            ),
+            labor_cost=float(
+                d.get("labor_cost", 0)
+            ),
+            transport_cost=float(
+                d.get("transport_cost", 0)
+            ),
+            utilities_cost=float(
+                d.get("utilities_cost", 0)
+            ),
+            packaging_cost=float(
+                d.get("packaging_cost", 0)
+            ),
+            inspection_cost=float(
+                d.get("inspection_cost", 0)
+            ),
+            other_cost=float(
+                d.get("other_cost", 0)
+            ),
+            created_by=sess["name"],
+        )
 
-for item_data in d.get("items", []):
-    item = ProcessingItem(...)
-    item.session = session
-    db.session.add(item)
+        if (
+            session.birds_processed
+            + session.birds_rejected
+            > session.birds_received
+        ):
+            raise ValueError(
+                "processed and rejected birds cannot exceed birds received"
+            )
 
-q3_audit(...)
+        items = d.get("items", [])
+
+        if not items:
+            raise ValueError(
+                "at least one whole, part, or evisceral item is required"
+            )
+
+        for item_data in items:
+            product = str(
+                item_data["product"]
+            ).strip()
+
+            category = str(
+                item_data["category"]
+            ).strip()
+
+            if category not in {
+                "whole",
+                "part",
+                "evisceral",
+            }:
+                raise ValueError(
+                    "item category must be whole, part, or evisceral"
+                )
+
+            item = ProcessingItem(
+                product=product,
+                category=category,
+                weight_kg=float(
+                    item_data["weight_kg"]
+                ),
+                pack_count=float(
+                    item_data.get("pack_count", 0)
+                ),
+                unit=item_data.get("unit", "kg"),
+                selling_rate=float(
+                    item_data["selling_rate"]
+                ),
+            )
+
+            session.items.append(item)
+
+        db.session.add(session)
+
+        q3_audit(
+            "create",
+            session,
+            sess["name"],
+            d.get(
+                "reason",
+                "Processing session",
+            ),
+        )
+
+        db.session.commit()
+
+        revenue = sum(
+            float(i.sale_value or 0)
+            for i in session.items
+        )
+
+        return jsonify({
+            "ok": True,
+            "id": session.id,
+            "expense_total": session.expense_total,
+            "revenue_total": revenue,
+            "margin": (
+                revenue
+                - float(session.expense_total or 0)
+            ),
+        }), 201
+
+    except (KeyError, TypeError, ValueError) as exc:
+        db.session.rollback()
+
+        return jsonify({
+            "ok": False,
+            "error": "validation_error",
+            "msg": str(exc),
+        }), 400
+
+    except SQLAlchemyError:
+        db.session.rollback()
+
+        app.logger.exception(
+            "Q3 Processing Session database error"
+        )
+
+        return jsonify({
+            "ok": False,
+            "error": "database_error",
+            "msg": "Processing Session could not be saved.",
+        }), 500
+    @app.route("/api/q3/audit-log", methods=["GET"])
+def q3_audit_log():
 
 db.session.commit()
         revenue=sum(i.sale_value for i in session.items)
@@ -1122,7 +1360,7 @@ db.session.commit()
         "error": "database_error",
         "msg": "Processing Session could not be saved."
     }), 500
-   @app.route("/api/q3/audit-log", methods=["GET"])
+@app.route("/api/q3/audit-log", methods=["GET"])
 def q3_audit_log():
     sess = auth(request)
 
