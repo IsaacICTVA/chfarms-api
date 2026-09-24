@@ -1,13 +1,20 @@
-from sqlalchemy.exc import SQLAlchemyError
 from flask import Flask, jsonify, request, send_file, make_response
 from flask_cors import CORS
 import json, os, datetime, hashlib, uuid, io
-from collections import defaultdict
 from flask_migrate import Migrate
-from q3_storage import db, AuditLog, BatchArrival, FeedRecord, ProcessingSession, ProcessingItem
+
+from q3_storage import (
+    db,
+    AuditLog,
+    BatchArrival,
+    FeedRecord,
+    ProcessingSession,
+    ProcessingItem,
+)
 
 app = Flask(__name__)
 CORS(app, origins="*")
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
@@ -30,6 +37,9 @@ elif DATABASE_URL.startswith("postgresql://"):
 
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db.init_app(app)
+migrate = Migrate(app, db) 
 # ── USERS ──────────────────────────────────────────────────────────────────────
 USERS = {
     "iyanu":  {"pin": hashlib.sha256("1234".encode()).hexdigest(), "role":"admin",      "name":"Iyanu"},
